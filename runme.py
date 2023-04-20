@@ -674,7 +674,7 @@ def predictionstocsv(name='tompredictions.csv', reftom=True, delon=False, confbi
     file.close()
 
 '''
-Write log-likelihoods per player, per ToM. Random model has to match answer.
+Write, to a file, log-likelihoods per player, per ToM, as well as the random model.
 '''
 
 def writeloglistans(maxtom=5, filenamestart='tom_refTrue_delonFalse_', reftom=True, delon=False, penalty=0.5,
@@ -863,6 +863,7 @@ layout - Node layout algorithm for the graph. Can be one of "fruchterman_reingol
 pos - Dictionary of node positions. Useful for printing the same graph multiple times to investigate how it changes between updates
 anss - String of answers to print in the upper right corner of the graph
 correct - String with correct answer to print in the upper right corner of the graph
+drawnodes - Whether to draw nodes
 drawreflexive - Set to true to draw reflexive edges
 drawtoms - Set to true to draw ToM tuples below each state
 statefont - Font size for state names
@@ -872,14 +873,13 @@ fntsz - General font size used for everything else
 Output variables:
 pos - Dictionary of node positions. Useful for printing the same graph multiple times to investigate how it changes between updates
 '''
-def drawmodel_toms(tomsmodel, savename, layout, pos=None, anss=None, correct=None, drawreflexive = False, drawtoms = False, statefont = 20, edgefntsz = 18, fntsz = 16):
+def drawmodel_toms(tomsmodel, savename, layout, pos=None, anss=None, correct=None, drawnodes = True, drawreflexive = False, drawtoms = False, statefont = 20, edgefntsz = 18, fntsz = 16):
     todraw = tomsmodel.pmodel.fmodel.copy()  # Don't want to modify the input model, just in case
     ndsz = 300 #300  # Size of nodes
     fgsz = 15  # Figure height/width
     ndshp = 'o'  # Node shape
     ndlbcl = 'black'  # Node label colour
     edcl = 'black'  # Edge colour
-    drawnodes = True  # Whether to draw nodes
     colorlist = ["orange", "yellow", "cyan"]  # Node colors
     edgeoffset = 0.1 # Offset for edge labels to ensure they are drawn on the edge itself
     plt.figure(1, figsize=(fgsz, fgsz))  # Create empty drawing area
@@ -1096,7 +1096,7 @@ def runtask():
     a8pm.fullmodel_to_directed_reflexive()  # Turn non-directed graph without reflexive arrows into directed graph with reflexive arrows
     tsm = ToMsModel(a8pm, 5)  # Create a ToM model for Aces and Eights, maximum level 5
     layout = "spectral"
-    pos = drawmodel_toms(tsm, "Figure1", layout)  # Draw and save model for Figure 1
+    pos = drawmodel_toms(tsm, "Figure1", layout, drawnodes = False)  # Draw and save model for Figure 1
     drawmodel_toms(tsm, "Figure2a", layout, pos=pos, drawreflexive=True, drawtoms=True, statefont=9,
                    edgefntsz=9, fntsz=9)  # Draw and save model for Figure 2a
     tsm.update(False, 0)  # Update ToM model with announcement `I do not know my cards' by player 0
