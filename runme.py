@@ -1,3 +1,5 @@
+# Imports
+
 import timeit
 from tom_models import *
 from epistemic_structures import *
@@ -37,44 +39,65 @@ def readloglist(filenamestart='tom_refTrue_delonFalse_'):
     return outlist
 
 '''
-Calculate correctrate for random model, taking into account answer
+Calculate coherence for random model, taking into account answer
+Input:
+-k88 - Times answered `I know my cards, I have two Eights'
+-k8a - Times answered `I know my cards, I have one Eight and one Ace'
+-kaa - Times answered `I know my cards, I have two Aces'
+-nk - Times answered `I do not know my cards'
+
+Output:
+-l - Proportion of times random model should correspond to participant
 '''
 
-
 def calccorrectraterandom(k88, k8a, kaa, nk):
-    sum = k88 + k8a + kaa + nk
-    l = ((k88 * (k88 / sum)) + (k8a * (k8a / sum)) + (kaa * (kaa / sum)) + (nk * (nk / sum))) / sum
+    n = k88 + k8a + kaa + nk  # Total number of answers given
+    l = ((k88 * (k88 / n)) + (k8a * (k8a / n)) + (kaa * (kaa / n)) + (nk * (nk / n))) / n  # Calculate coherence
     return l
 
 '''
 Calculate likelihood for random model, taking into account answer
+Input:
+-k88 - Times answered `I know my cards, I have two Eights'
+-k8a - Times answered `I know my cards, I have one Eight and one Ace'
+-kaa - Times answered `I know my cards, I have two Aces'
+-nk - Times answered `I do not know my cards'
+
+Output:
+-l - log-likelihood of random model corresponding to participant
 '''
 def calcerrorlikelihoodans(k88, k8a, kaa, nk):
-    l = 0
-    sum = k88 + k8a + kaa + nk
-    if k88 > 0:
-        l = l + (k88 * math.log(k88/sum))
-    if k8a > 0:
-        l = l + (k8a * math.log(k8a/sum))
-    if kaa > 0:
-        l = l + (kaa * math.log(kaa/sum))
-    if nk > 0:
-        l = l + (nk * math.log(nk/sum))
+    l = 0  # To-be-outputted log-likelihood
+    n = k88 + k8a + kaa + nk  # Calculate n, the total number of decision points
+    for a in [nk, k88, k8a, kaa]:  # Loop over answers
+        if a > 0:  # Prevent ln(0)
+            l = l + (a * math.log(a / n))  # Sum over answers of a*ln(a/n)
     return l
 
 '''
-   For a player, count how many times the player says 'true88'/'true8a'/'trueaa' and how many times 'false'
-   '''
+For a player, count how many times the player gives each answer
+Input:
+-predictlist - database with predictions for each ToM level, for each decision point of each participant
+-player - player id
+-perfect - If true, pretend each player gave perfect answers
 
+Output:
+-k88 - Times answered `I know my cards, I have two Eights'
+-k8a - Times answered `I know my cards, I have one Eight and one Ace'
+-kaa - Times answered `I know my cards, I have two Aces'
+-nk - Times answered `I do not know my cards'
+'''
 
 def countknowans(predictlist, player, perfect=False):
-    playerlist = []
-    ansindex = 7
-    if perfect:
-        ansindex = 8
-    for list in predictlist:
-        if list[0] == player:
-            playerlist.append(list)
+    playerlist = []  # List of all rows in predictlist that belong to this player
+    ansindex = 7  # In which column can we find the player's answer?
+    if perfect:  # If we pretend the players gave perfect answers...
+        ansindex = 8  # ...look at the column with the perfect answer instead
+    for list in predictlist:  # Loop through all decision points for all players
+        if list[0] == player:  # If it belongs to the current player
+            playerlist.append(list)  # Add it to the list of the current player's decision points
+
+    # Count how often this player gave each answer
     k88 = 0
     k8a = 0
     kaa = 0
@@ -83,7 +106,7 @@ def countknowans(predictlist, player, perfect=False):
         if list[ansindex][0] == 0:
             nk += 1
         else:
-            if list[ansindex][1][0] == '88':
+            if list[ansindex][1][0] == '88':  # If the anser was `I know my cards', also check which cards were reported
                 k88 += 1
             else:
                 if list[ansindex][1][0] == '8A''':
@@ -93,35 +116,53 @@ def countknowans(predictlist, player, perfect=False):
     return k88, k8a, kaa, nk
 
 '''
-   Calculate likelihood
-   '''
+Calculate log-likelihood
+Input:
+-correct - Times model corresponded to participant
+-incorrect - Times model deviated from participant
+-penalty - p in n(1-e)*ln(1-e) + ne*ln(pe)
 
+Output:
+-l - log-likehood of participant using this model
+'''
 
 def calclikelihood(correct, incorrect, penalty=0.5):
-    e = incorrect / (correct + incorrect)  # epsilon
+    e = incorrect / (correct + incorrect)  # epsilon, error rate - incoherent answers divided by n
     l = 0
     if correct > 0:
-        l += correct * math.log(1 - e)
+        l += correct * math.log(1 - e)  # n(1-e)*ln(1-e)
     if incorrect > 0:
-        l += incorrect * math.log(e * penalty)
+        l += incorrect * math.log(e * penalty)  # ne*ln(pe)
     return l
 
 '''
-   For a player and a ToM, count how many correct predictions the model makes, as well as incorrect predictions
-   '''
+For a player and a ToM, count how many correct predictions the model makes, as well as incorrect predictions
 
+Input:
+-predictlist - For each decision point, predicted answers from each model
+-player - player ID
+-tom - model's level we want to know accuracy for
+-perfect - Whether to pretend the participant gave perfect answers
+-emptyincorrect - If False, treat no outgoing edges as `I don't know my cards', if True, treat no outgoing edges as an answer that does not correspond to the participant
+
+Output:
+-correct - Times model corresponded to the participant
+-incorrect - Times model deviated from the participant
+'''
 
 def countmodelacc(predictlist, player, tom, perfect=False, emptyincorrect=False):
-    playerlist = []
+    playerlist = []  # List of player's decision points with predicted model answers
     ansindex = 7  # Column with the player's answer
-    if perfect:
+    if perfect:  # If we pretend the participant answered perfectly, use the column with the perfect answer instead
         ansindex = 8
-    for list in predictlist:
-        if list[0] == player:
+    for list in predictlist:  # Loop over all players, all decision points
+        if list[0] == player:  # Get those decision points for the current player
             playerlist.append(list)
+
+    # Count how often model corresponded to player (and how often it did not)
     correct = 0
     incorrect = 0
-    for list in playerlist:
+    for list in playerlist:  # Loop over player's decision points
         if not emptyincorrect:
             if list[6][tom][0] == -1:  # Replace 'impossible' with 'I don't know'
                 list[6][tom] = (0, list[6][tom][1])
@@ -143,39 +184,52 @@ def countmodelacc(predictlist, player, tom, perfect=False, emptyincorrect=False)
 
 '''
 For a player and ToM, count how often that ToM is correct
+Input:
+-predictlist - For each player's decision point, each level's predicted answer
+-player - Player ID
+-tom - Level under consideration
+
+Output:
+-totcor / totrounds - Proportion of decision points where this level gives the correct answer
 '''
 
-
 def counttcor(predictlist, player, tom):
-    totrounds = 0
-    totcor = 0
-    for list in predictlist:
-        if list[0] == player:
-            totrounds += 1
-            if list[10][tom]:
+    totrounds = 0  # Total number of decision points
+    totcor = 0  # Decision points where this model is correct
+    for list in predictlist:  # Loop over all players' decision points
+        if list[0] == player:  # If it belongs to the current player
+            totrounds += 1  # Increment number of decision points
+            if list[10][tom]:  # This level's answer is correct, increment
                 totcor += 1
-    return totcor / totrounds
+    return totcor / totrounds  # Return proportion of correct answers for this level
 
 '''
 For a player, count how often that player is correct
+Input:
+-predictlist - For all players' decision points, predictions for each model
+-player - Player ID
+
+Output:
+-totcar / totrounds - Proportion of decision points where player gave correct answer
 '''
 
-
 def countpcor(predictlist, player):
-    playerlist = []
-    totrounds = 0
-    totcor = 0
-    for list in predictlist:
-        if list[0] == player:
-            totrounds += 1
-            if list[9]:
+    totrounds = 0  # Total number of player's decision points
+    totcor = 0  # Number of decision points where player was correct
+    for list in predictlist:  # Loop over all decision points
+        if list[0] == player:  # If it belongs to the player
+            totrounds += 1  # Increment rounds
+            if list[9]:  # If player was correct, increment
                 totcor += 1
-    return totcor / totrounds
+    return totcor / totrounds  # Return proportion that player was correct
 
 '''
 Read CSV with predictions for each ToM level, for each subject/turn/round
 Input:
 -name - Name of the file to be read
+
+Output:
+-List with for each player, for each decision point, list of predicted answers for each model
 '''
 
 def csvtopredictions(name='tompredictions.csv'):
@@ -203,14 +257,13 @@ def csvtopredictions(name='tompredictions.csv'):
     return outlist
 
 '''
-   Returns predicted answers vs. actual answers for a subject
-   input:
-   -subj - subject id
-   -maxtom - maximum ToM under consideration
-   -pack - a list [lib,cdat] for faster calculations
-   -verbose - if True, also return state, round, and turn for each decision
-   '''
-
+Returns predicted answers vs. actual answers for a subject
+input:
+-subj - subject id
+-maxtom - maximum ToM under consideration
+-pack - a list [lib,cdat] for faster calculations
+-verbose - if True, also return state, round, and turn for each decision
+'''
 
 def subjpairs(subj, maxtom, pack=None, verbose=False):
     if pack is None:  # If these haven't been passed, make them now
