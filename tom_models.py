@@ -4,8 +4,6 @@ import numpy as np
 
 '''
 Describes a game and the full perfect model for that game
-
-Note: PerfectModel cannot change!
 '''
 class PerfectModel:
     def __init__(self, newpcount=0, newhandsize=0, newsymbs="", newvis=None,newconsnum=False):
@@ -905,20 +903,6 @@ class ToMsModel:
         hndsz = self.pmodel.handsize
         statenodes = self.pmodel.fmodel.nodes(
             data="state")  # List of 2-tuples where the first element is the node id and the second element is the node's state as string
-        '''
-        if not self.nodetomlist[node][player][tom]:  # Tuple doesn't exist!
-            print("Tuple doesn't exist!")
-            done = False  # Stop looping when true
-            while not done:
-                tom = tom - 1  # Lower ToM until you find one that still exists
-                if tom == -1:
-                    return -1, ''
-                else:
-                    if self.nodetomlist[node][player][tom]:  # Tuple exists!
-                        done = True
-           # return -1, ''
-        '''
-        # else:
         nodepossibs = [v for (u, v, l) in
                        self.pmodel.fmodel.edges(data="players") if
                        u == node and player in l]  # Nodes announcing player considers possible in this node

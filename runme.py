@@ -10,23 +10,28 @@ import os
 
 '''
 Read log-likelihoods per player, per ToM from file
+input:
+-filenamestart - Initial substring of the filename of the to-be-read file
+output:
+-outlist - The to-be-read .csv file, converted to list of lists of Python objects
 '''
 
 
 def readloglist(filenamestart='tom_refTrue_delonFalse_'):
-    name = filenamestart + "likelihoods.csv"
-    outlist = []
+    name = filenamestart + "likelihoods.csv"  # Construct filename
+    outlist = []  # To-be-returned list
+    # Read the file and store it in outlist
     with open(name, newline='') as file:
         reader = csv.reader(file, delimiter=',', quotechar='"')
         for row in reader:
             outlist.append(row)
     file.close()
-    for i in range(1, len(outlist)):
-        for j in range(len(outlist[i])):
-            if j != 6:
-                if isinstance(outlist[i][j], str):
-                    if outlist[i][j] != "":
-                        outlist[i][j] = eval(outlist[i][j])
+    for i in range(1, len(outlist)):  # Loop over lists in outlist
+        for j in range(len(outlist[i])):  # Loop over items in sublist
+            if j != 6:  # Column 6 can stay a string
+                if isinstance(outlist[i][j], str):  # Otherwise, if it is a string
+                    if outlist[i][j] != "":  # And it is non-empty
+                        outlist[i][j] = eval(outlist[i][j])  # Evaluate it
                     else:
                         outlist[i][j] = -1
     return outlist
@@ -169,33 +174,28 @@ def countpcor(predictlist, player):
 
 '''
 Read CSV with predictions for each ToM level, for each subject/turn/round
+Input:
+-name - Name of the file to be read
 '''
 
 def csvtopredictions(name='tompredictions.csv'):
-    outlist = []
+    outlist = []  # List to be outputted
+
+    # Read file
     with open(name, newline='') as file:
         reader = csv.reader(file, delimiter=',', quotechar='"')
         for row in reader:
             outlist.append(row)
     file.close()
+
+    # Convert everything from string to Python objects
     for i in range(len(outlist)):
         if i != 0 and i < 3761:  # Only subject data
-            outlist[i][0] = int(outlist[i][0])
-            outlist[i][1] = int(outlist[i][1])
-            outlist[i][3] = int(outlist[i][3])
-            outlist[i][4] = int(outlist[i][4])
-            if isinstance(outlist[i][5], str):
-                outlist[i][5] = eval(outlist[i][5])
-            if isinstance(outlist[i][6], str):
-                outlist[i][6] = eval(outlist[i][6])
-            if isinstance(outlist[i][7], str):
-                outlist[i][7] = eval(outlist[i][7])
-            if isinstance(outlist[i][8], str):
-                outlist[i][8] = eval(outlist[i][8])
-            if isinstance(outlist[i][9], str):
-                outlist[i][9] = eval(outlist[i][9])
-            if isinstance(outlist[i][10], str):
-                outlist[i][10] = eval(outlist[i][10])
+            for j in [0,1,3,4]:
+                outlist[i][j] = int(outlist[i][j])
+            for j in [5,6,7,8,9,10]:
+                if isinstance(outlist[i][j], str):
+                    outlist[i][j] = eval(outlist[i][j])
         else:
             if i > 3760:
                 if isinstance(outlist[i][1], str):
@@ -560,6 +560,7 @@ input:
 -reftom - Does reflexive count as ToM? True for yes, False for no.
 -confbi - Do agents have confirmation bias?
 -lono - Do agents lower their ToM to find an answer?
+-usecedegao - If true, use epistemically bounded models instead of ToM models
 '''
 
 
@@ -568,7 +569,12 @@ def gamelibrary(maxtom, reftom=True, delon=False, confbi=False, lono=False, usec
     a8pm.fullmodel_to_directed_reflexive()  # Turn non-directed graph without reflexive arrows in directed graph with reflexive arrows
 
     if usecedegao:
-        cedanss = allacesandeights_anyerror_and_update_cedegao(1, 0)
+        cedanss = allacesandeights_anyerror_and_update_cedegao(1, 0)  # Get answers from epistemically bounded models
+        # Columns are: state, level, list of answers for each round/turn
+        # Each answer is a three-tuple with
+        # A bool for Know/don't know,
+        # A bool for there are no outgoing edges
+        # The actual answer
     statedict = {}  # Start building a dictionary with a key for each combination of state, round, turn, and as values a list of predicted answers for each ToM
 
     statelist = a8pm.possible_worlds  # List of all states in the game (as strings)
@@ -582,7 +588,9 @@ def gamelibrary(maxtom, reftom=True, delon=False, confbi=False, lono=False, usec
                 tsm.update(panss[round][turn], turn, reflexivetom=reftom, delonempty=delon, confbias=confbi,
                            lowknow=lono)  # Update the model
                 if usecedegao:
-                    statecdans = [x[3] for x in cedanss if state == x[0]]
+                    statecdans = [x[3] for x in cedanss if state == x[0]]  # Predicted answers for each EL for this combination of state/round/turn
+
+                    # Loop over EL levels and convert them to our writing convention (two-tuple, first element is 0 for `I don't know', 1 for `I know', second element is string with answer
                     anslist = []
                     for i in range(len(statecdans)):
                         canswer = statecdans[i][round][turn]
@@ -622,52 +630,63 @@ def allsubjpairs(maxtom, verbose=False, reftom=True, delon=False, confbi=False, 
 
 '''
 Write CSV with predictions for each ToM level, for each subject/turn/round
+Input:
+-name - Filename to write
+-reftom - parameter, whether reflexive arrows count as ToM
+-delon - parameter, whether tuples should be deleted if there are no outgoing edges
+-confbi - parameter, confirmation bias. If true, do not delete tuples if you KNOW your symbols.
+-lono - parameter. If true, if there are no outgoing edges, lower your ToM until you find one where there are
+-maxtom - Maximum level under consideration
+-usecedegao - If true, generate predictions for epistemically bounded models instead of ToM models
 '''
 
 def predictionstocsv(name='tompredictions.csv', reftom=True, delon=False, confbi=False, lono=False, maxtom=5,
                      usecedegao=False):
     outlist = allsubjpairs(maxtom, verbose=True, reftom=reftom, delon=delon, confbi=confbi, lono=lono,
-                           usecedegao=usecedegao)
+                           usecedegao=usecedegao)  # List with, for each participant, decision point, and ToM, a predicted answer for that combination, as well as the participant's actual answer
     a8pm = PerfectModel(3, 2, "8888AAAA", "noself")  # Make perfect model for Aces and Eights
     a8pm.fullmodel_to_directed_reflexive()  # Turn non-directed graph without reflexive arrows in directed graph with reflexive arrows
-    # Pretty printing below here
-    writelist = []
+    writelist = []  # List of rows to be written to file
     header = ['subj', 'decisionnum', 'state', 'turn', 'round', 'precedingannouncements', 'tompredictions',
-              'actualanswer', 'perfectanswer', 'playercorrect', 'tomcorrects']
+              'actualanswer', 'perfectanswer', 'playercorrect', 'tomcorrects']  # Header
     writelist.append(header)
-    for subj in outlist:
-        for i in range(len(subj[1])):
-            state = subj[1][i][0][0]
+    for subj in outlist:  # Loop over subjects
+        for i in range(len(subj[1])):  # Loop over decision points
+            state = subj[1][i][0][0]  # Distribution of cards
             round = subj[1][i][0][1]
             turn = subj[1][i][0][2]
             panss, _ = a8pm.perfectanswers([0, 1, 2], subj[1][i][0][0], False)  # Perfect answers for this game
-            perfectansbool = panss[round][turn]
-            perfectans = (0, [''])
-            if perfectansbool:
-                perfectansstring = state[turn * 2:(turn * 2) + 2]
-                perfectans = (1, [perfectansstring])
-            panss = panss[0:subj[1][i][0][1] + 1]
-            panss[subj[1][i][0][1]] = panss[subj[1][i][0][1]][0:subj[1][i][0][2]]
-            tomcorrects = []
-            for pred in subj[1][i][1]:
-                tomcor = True
-                ans = pred[0]
-                ansstring = pred[1]
-                if ans == -1:
+            perfectansbool = panss[round][turn]  # True if `I know my cards', False if `I do not know my cards'
+            perfectans = (0, [''])  # Assume answer is `I do not know my cards' until shown otherwise
+            if perfectansbool:  # If answer is `I know my cards'
+                perfectansstring = state[turn * 2:(turn * 2) + 2]  # Get the actual, correct answer
+                perfectans = (1, [perfectansstring])  # Construct perfect answer (0 = `I don't know', `1 = I know')
+            panss = panss[0:subj[1][i][0][1] + 1]  # Restrict to relevant rounds
+            panss[subj[1][i][0][1]] = panss[subj[1][i][0][1]][0:subj[1][i][0][2]]  # Restrict to relevant preceding turns. Now we have all the preceding announcements.
+
+            tomcorrects = []  # Which ToM levels made the correct prediction for this subject, for this decision point?
+            for pred in subj[1][i][1]:  # Loop over ToM predictions
+                tomcor = True  # Assume it's correct until proven otherwise
+                ans = pred[0]  # Answer (`I know' or `I don't know')
+                ansstring = pred[1]  # Symbols this player claims to be holding
+                if ans == -1:  # Replace no outgoing edges with `I don't know'
                     ans = 0
-                if ans != perfectans[0]:
-                    tomcor = False
-                    if ans == 1:
+                if ans != perfectans[0]:  # If participant answer does not correspond to actual answer...
+                    tomcor = False  # ...it's incorrect
+                    if ans == 1:  # If answer is `I know', claimed symbols also need to match
                         if ansstring != perfectans[1]:
                             tomcor = False
-                tomcorrects.append(tomcor)
+                tomcorrects.append(tomcor)  # Add to list
+            #In order: participant ID, decision point number, actual state, round, turn, preceding answers, ToM predictions, participant's answer, perfect answer, whether participant was correct, which ToM levels were correct
             subjlist = [subj[0], i + 1, subj[1][i][0][0], subj[1][i][0][2], subj[1][i][0][1], panss, subj[1][i][1],
                         subj[1][i][2], perfectans, subj[1][i][2] == perfectans, tomcorrects]
 
             writelist.append(subjlist)
-    writelist.append(["reftom", reftom])  # Also add parameters to output
+    writelist.append(["reftom", reftom])  # Also add parameter settings to output
     writelist.append(["delon", delon])
     writelist.append(["confbi", confbi])
+
+    # Write list of predictions to file
     with open(name, 'w', encoding='UTF8', newline='') as file:
         writer = csv.writer(file)
         writer.writerows(writelist)
@@ -675,23 +694,32 @@ def predictionstocsv(name='tompredictions.csv', reftom=True, delon=False, confbi
 
 '''
 Write, to a file, log-likelihoods per player, per ToM, as well as the random model.
+Input:
+-maxtom - Maximum level under consideration
+-filenamestart - First string in filenames for created files
+-reftom - True if reflexive counts as ToM
+-delon - True if tuples are deleted when there are no outgoing edges
+-penalty - p in n(1-e) * ln(1-e) + ne * ln(pe) where e is error rate and n is number of decision points
+-perfect - Use perfect answers instead of participant's answers
+-emptyincorrect - Model always gives incorrect prediction if the graph is empty (instead of `I don't know')
+-usecedegao - Set to true to use epistemically bounded model instead of ToM models
 '''
 
 def writeloglistans(maxtom=5, filenamestart='tom_refTrue_delonFalse_', reftom=True, delon=False, penalty=0.5,
                     perfect=False, emptyincorrect=False, usecedegao=False):
     predictionstocsv(name=filenamestart + 'predictions.csv', reftom=reftom, delon=delon, confbi=False, lono=False,
-                     maxtom=maxtom, usecedegao=usecedegao)  # Make list of predicted actions
-    predictions = csvtopredictions(filenamestart + 'predictions.csv')  # Read predictions again
-    outlist = []  # List to be returned
+                     maxtom=maxtom, usecedegao=usecedegao)  # Make list of predicted answers
+    predictions = csvtopredictions(filenamestart + 'predictions.csv')  # Read list predictions answers
+    outlist = []  # List of rows that need to be written to a file
     outlist.append(["subjnum", "model", "loglikelihood", "reftom", "delon", "C/T", "88/8A/AA/NK", "randomcorrectrate",
                     "playeraccuracy", "tomaccuracy"])  # header
     for player in range(1, 211 + 1):  # Loop over all 211 players
-        pscore = countpcor(predictions, player)  # How good is a player
+        pscore = countpcor(predictions, player)  # How good is a player?
         for t in range(maxtom + 1):  # Loop over ToM levels
-            tscore = counttcor(predictions, player, t)  # How good is this ToM
+            tscore = counttcor(predictions, player, t)  # How good is this ToM?
             correct, incorrect = countmodelacc(predictions, player,
                                                t, perfect=perfect,
-                                               emptyincorrect=emptyincorrect)  # Read how often the player answered (in)correctly
+                                               emptyincorrect=emptyincorrect)  # Read how often the player corresponded to the model
             l = calclikelihood(correct, incorrect, penalty=penalty)  # Get log-likelihood
             outlist.append([player, t, l, reftom, delon, str(correct / (correct + incorrect)),
                             "", "", pscore, tscore])  # Save to output list
@@ -699,10 +727,10 @@ def writeloglistans(maxtom=5, filenamestart='tom_refTrue_delonFalse_', reftom=Tr
                                          player,
                                          perfect=perfect)  # Once for each player, count how often player said 'I (don't) know'
         le = calcerrorlikelihoodans(k88, k8a, kaa, nk)  # Use those to calculate the likelihood of the random model
-        rcr = calccorrectraterandom(k88, k8a, kaa, nk)  # Random correct rate
+        rcr = calccorrectraterandom(k88, k8a, kaa, nk)  # Random coherence
         outlist.append([player, maxtom + 1, le, reftom, delon, rcr,
                         str(k88) + "/" + str(k8a) + "/" + str(kaa) + "/" + str(nk), rcr,
-                        pscore])  # reserve maxtom + 1 as random model
+                        pscore])  # Add data to output list, reserve maxtom + 1 as random model
     with open(filenamestart + "likelihoods.csv", 'w', encoding='UTF8', newline='') as file:  # Write to file
         writer = csv.writer(file)
         writer.writerows(outlist)
