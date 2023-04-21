@@ -4,37 +4,39 @@
 #install.packages("ggplot2")
 #install.packages("magrittr")
 #install.packages("dplyr")
-#install.packages("here")
 
-
+#Load require libraries
 library(reshape2)
 library(ggplot2)
 library(magrittr)
 library(dplyr)
-library(here)
 
 # Plot Figure 3
 
+#For EL-0, -1, -2, -3, -4, respectively, proportion of Cedegao's participants that got fitted to that level for SUWEB
 suweb <-c(0.061611374407582936, 0.46919431279620855, 0.16113744075829384, 0.16113744075829384, 0.14691943127962084)
+
+#For, respectively, EL-0, -1, -2, -3, -4, and the random model, predicted frequency of that model in the population when non-stochastic SUWEB is fitted to Cedegao et al (2021)'s participants using RFX-BMS
 bounded_rfxbms <- c(0.10408475458361952, 0.32130845510397155, 0.517032310841148, 0.030982782275912172, 0.019993851501324742, 0.0065978456940241495)
 
-suweb <- append(suweb, 0)
-names = c("EL-0", "EL-1", "EL-2", "EL-3", "EL-4", "Random")
-data <- data.frame(rfxbms=bounded_rfxbms,names=names)
-suwebdat <- data.frame(SUWEB=suweb)
+suweb <- append(suweb, 0) #SUWEB has no random model so proportion of random model for SUWEB is 0
+names = c("EL-0", "EL-1", "EL-2", "EL-3", "EL-4", "Random") #Names of the models
+data <- data.frame(rfxbms=bounded_rfxbms,names=names)  #Convert bounded_rfxbms to data frame
+suwebdat <- data.frame(SUWEB=suweb) #Convert suweb to dta frame
 
-tot = cbind(data,suwebdat)
-tot = tot[,c(2,1,3)]
+tot = cbind(data,suwebdat) #Combine both fits
+tot = tot[,c(2,1,3)] #Re-order columns
 
-tot <- melt(tot)
-#names(dfp1)[3] <- "percent"
+tot <- melt(tot)  # Combine columns with proportion
+
+# Plot Figure 3
 ggplot(tot, aes(x = names, y= value, fill = variable), xlab="Age Group") +
   geom_bar(stat="identity", width=.5, position = "dodge") + 
   theme(legend.position = c(0.85,0.85), 
         axis.text.x = element_text(size=15),
         axis.text.y = element_text(size=15),
-        axis.title.x = element_text(size=12),
-        axis.title.y = element_text(size=12),
+        axis.title.x = element_text(size=15),
+        axis.title.y = element_text(size=15),
         legend.title = element_text(size=13),
         legend.text = element_text(size=14)
   ) +
@@ -44,15 +46,18 @@ ggplot(tot, aes(x = names, y= value, fill = variable), xlab="Age Group") +
                       labels=c("RFX-BMS","MLE on SUWEB")) + 
   xlab("Model") + ylab("Proportion of participants fitted")  +
   geom_text(data=tot[c(1,2,3,4,5,6),],aes(x=names,y=value,label=format(round(value, digits=3),nsmall = 3)),
-            vjust=-0.32,size=4,hjust=1.1) + 
+            vjust=-0.32,size=5,hjust=1.1) + 
   geom_text(data=tot[c(7,8,9,10,11),],aes(x=names,y=value,label=format(round(value, digits=3),nsmall = 3)),
-            vjust=-0.32,size=4,hjust=-0.1)
+            vjust=-0.32,size=5,hjust=-0.1)
 
 # Plot Figure 4
 
+#RFX-BMS results for ToM models, sorted as ToM-0, -1, -2, -3, -4, -5, random model
 tom_rfxbms <- c(0.1628446565849932, 0.20955381145911933, 0.3689215648244876, 0.10117939982240508, 0.015289403238450365, 0.13697918692915367, 0.005231977141390788)
-names = c("ToM-0","ToM-1","ToM-2","ToM-3","ToM-4","ToM-5","Random")
-data <- data.frame(values=tom_rfxbms,names=names)
+names = c("ToM-0","ToM-1","ToM-2","ToM-3","ToM-4","ToM-5","Random") #Model names
+data <- data.frame(values=tom_rfxbms,names=names) #Convert to data frame
+
+#Plot Figure 4
 p <- ggplot(data=data, aes(x=names, y=values)) +
   geom_bar(stat="identity") +
   ylim(0,0.4) + 
@@ -60,40 +65,49 @@ p <- ggplot(data=data, aes(x=names, y=values)) +
                                                                     vjust=-1,size=5) +
   theme(axis.title.x=element_blank(),legend.title=element_blank(),axis.text=element_text(size=12))
 
+#Show Figure 4
 p
 
 # Plot Figure 5
 
+#Set working directory to plotcode.R file location (requires RStudio - without RStudio please set working directory to location of correctrates_usecedegaoFalse.csv manually)
 setwd(substr(rstudioapi::getSourceEditorContext()$path,1,nchar(rstudioapi::getSourceEditorContext()$path)-11))
-data <- read.csv2('correctrates_usecedegaoFalse.csv', header=FALSE)
+data <- read.csv2('correctrates_usecedegaoFalse.csv', header=FALSE)  #Read coherence data
+
+#Read coherence for all participants, convert to numeric, and remove NA values
 tomall<-as.list(strsplit(data[8,], ",")[[1]])
 tomall <- as.numeric(tomall)
 tomall <- tomall[!is.na(tomall)]
 
+#Read coherence for participants where random model fits best, convert to numeric, and remove NA values
 tomrand<-as.list(strsplit(data[9,], ",")[[1]])
 tomrand <- as.numeric(tomrand)
 tomrand <- tomrand[!is.na(tomrand)]
 
-data3 <- cbind(tomall)
-data3 <- as.data.frame(unlist(data3[,1]))
-rownames(data3) <- c() 
-colnames(data3)<- c()
+data3 <- cbind(tomall) # Convert to column
+data3 <- as.data.frame(unlist(data3[,1])) #Convert to data frame
+rownames(data3) <- c() # Remove row names
+colnames(data3)<- c() # Remove column names
 
-names(data3) <- "data3"
+names(data3) <- "data3" # Name only column `data3' so we can refer to it
 
+# Mark outliers
 data3 <- data3 %>% 
   mutate(outlier = data3 > median(data3) + 
            IQR(data3)*1.5 | data3 < median(data3) -
            IQR(data3)*1.5) 
+
+# List of outliers where random model fits best
 randdata <- data.frame(data3=tomrand,
                        outlier=TRUE)
 
-data_norand <- data3[which(!(data3$data3 %in% tomrand)),]
-data_norand <- data_norand[which(data_norand$outlier == TRUE),]
+data_norand <- data3[which(!(data3$data3 %in% tomrand)),]  # Data without participants where random model fits best
+data_norand <- data_norand[which(data_norand$outlier == TRUE),]  # Outliers where ToM model fits best
 
-length(data3[which(data3$data3 > 0.736),][,1])
-211 - length(data3[which(data3$data3 > 0.5),][,1])
+length(data3[which(data3$data3 > 0.736),][,1])  # How many participants have a coherence > 0.736 ?
+211 - length(data3[which(data3$data3 > 0.5),][,1])  # How many participants have a coherence > 0.5 ?
 
+# Create Figure 5
 data3 %>% 
   ggplot(aes("",data3),ylim=c(0,1),xlab="",xtitle="",ylab="",) + 
   geom_boxplot(outlier.shape = NA) + coord_cartesian(ylim = c(0, 1)) +
@@ -108,6 +122,7 @@ data3 %>%
     axis.title.y=element_blank()
   )
 
+# Calculate mean, median, and IQR for coherence
 round(mean(data3[,1]),digits=3)
 round(median(data3[,1]),digits=3)
 round(IQR(data3[,1]),digits=3)
