@@ -261,18 +261,23 @@ Returns predicted answers vs. actual answers for a subject
 input:
 -subj - subject id
 -maxtom - maximum ToM under consideration
--pack - a list [lib,cdat] for faster calculations
+-pack - a list [lib,cdat] for faster calculations, where lib contains model answers and cdat contains participant answers
 -verbose - if True, also return state, round, and turn for each decision
+Output:
+-outlist - A list with, for each of the subject's decision points, a three tuple of:
+--Decision point descriptor (three-tuple with state, round, turn)
+--List of predictions for each model
+--Subject's actual answer
 '''
 
 def subjpairs(subj, maxtom, pack=None, verbose=False):
     if pack is None:  # If these haven't been passed, make them now
         lib = gamelibrary(maxtom)  # For each combination of state/turn/round/ToM, a predicted answer
         cdat = prunecedegaodata_game(False)  # Cedegao's data
-    else:
+    else:  # Unpack from passed variables
         lib = pack[0]
         cdat = pack[1]
-    outlist = []
+    outlist = []  # To-be-returned list
     for row in cdat[subj - 1]:  # Loop over subject's played games
         state = row[2]
         turn = row[3]
@@ -281,13 +286,15 @@ def subjpairs(subj, maxtom, pack=None, verbose=False):
             ans = anss[round]
             lookupstr = str(state) + str(round) + str(turn)  # Create a key to use with lib
             predictlist = lib[lookupstr]  # Predicted answers for each ToM level
+
+            # Translate answer in cdat to our format
             know = 1
             cardans = ""
             if ans == "False":
                 know = 0
             else:
                 cardans = ans[4:6]  # 88, 8A, or AA
-            totans = (know, [cardans])
+            totans = (know, [cardans])  # Participant's answer
             if not verbose:
                 outlist.append((predictlist, totans))
             else:
@@ -295,84 +302,87 @@ def subjpairs(subj, maxtom, pack=None, verbose=False):
     return outlist
 
 '''
-    Read Cedegao's participant data
+Input: none
+Output:
+    -datalist - List of lists containing Cedegao et al (2021)'s data, read directly from file
 
-    THIS DATA DESCRIPTION COPIED FROM Cedegao et al (2021)'S README:
+Read Cedegao's participant data
 
-    ## Data
-    Columns:
-    1. "age": the subject's age.              
-    2. "AmyResponse": Amy's response (I know/I don't know).         
-    3. "answer": the subject's answer (what cards she holds. If response is "I don't know", encoded as '').   
-    4. "BenResponse": Ben's response (I know/I don't know).         
-    5. "cards": game state.               
-    6. "cards_iso": game states up to equivalence, e.g., 88AAAA is encoded as AA8888.          
-    7. "corAnswer": the subject's correct response (I know or I don't know).           
-    8. "exp_time": how long the subject took to finish the experiment, excluding the demographic form.               
-    9. "gender": the subject's gender.                         
-    10. "inference_level": the minimum level l required to guarantee a SUWEB model (with no stochasticity) with 
-        level >= l can solve the game.
-    11. "number": the number guess in the p-beauty contest.                  
-    12. "order": game order.               
-    13. "outcome": won or lost the current game.          
-    14. "outcomeArray": the correct annoucements by all players of a game (a list of lists), representing rounds in 
-        a game.        
-    15. "phase": game number.                  
-    16. "points": how many games the subject won out of ten games.              
-    17. "response": the subject's actual response (I know/I don't know).          
-    18. "round": the round number of a data point.                
-    19. "RT": the subject's reaction time for each round (counting from the onset of the previous announcement).  
-    20. "should_know": at which turn should the subject know her card (9 turns total, 10 means she never should know).
-    21. "subj": the subject ID.       
-    22. "numRound": the maximum number of round the game reaches if the subject keeps responding I don't know.
+THIS DATA DESCRIPTION COPIED FROM Cedegao et al (2021)'S README:
 
-    ACTUAL data structure:
-    1. phase - game number
-    2. cards - game state, where the first two cards are the participant's, the second two cards are Amy's, 
-    the third two cards are Ben's
-    3. order - Turn order each round
-    4. outcomeArray - Perfect answers for this situation
-    5. response - True if the subject says 'I know', False if the subject says 'I don't know'
-    6. answer - AA/88/A8, what the subject says he/she has ('' if response is False).
-    7. AmyResponse - what Amy said in this round ('' if game ended before Amy got a turn) (True/False)
-    8. BenResponse - what Ben said in this round ('' if game ended before Ben got a turn) (True/False)
-    9. corAnswer - what the subject should respond (True, False)
-    10. round - round number
-    11. subj - subject ID
-    12. outcome - Did the subject win or lose (0 if lost, 1 if won)
-    13. cards_iso - Equivalent game state that starts with A (same if the game state already starts with A)
-    14. RT - reaction time
-    15. points - how many games subject won out of 10 games (where you win if you make NO mistakes)
-    16. exp_time - time to finish entire experiment
-    17. number - number guess in p-beauty
-    18. inference_level - epistemic level required to solve this case
-    19. should_know - At which turn out of 3x3=9 should the subject know his/her cards (10 if never)
-    20. numRound - maximum round game reaches if subject keeps responding "I don't know"
-    21. age - subject age
-    22. gender - subject sex
+## Data
+Columns:
+1. "age": the subject's age.              
+2. "AmyResponse": Amy's response (I know/I don't know).         
+3. "answer": the subject's answer (what cards she holds. If response is "I don't know", encoded as '').   
+4. "BenResponse": Ben's response (I know/I don't know).         
+5. "cards": game state.               
+6. "cards_iso": game states up to equivalence, e.g., 88AAAA is encoded as AA8888.          
+7. "corAnswer": the subject's correct response (I know or I don't know).           
+8. "exp_time": how long the subject took to finish the experiment, excluding the demographic form.               
+9. "gender": the subject's gender.                         
+10. "inference_level": the minimum level l required to guarantee a SUWEB model (with no stochasticity) with 
+    level >= l can solve the game.
+11. "number": the number guess in the p-beauty contest.                  
+12. "order": game order.               
+13. "outcome": won or lost the current game.          
+14. "outcomeArray": the correct annoucements by all players of a game (a list of lists), representing rounds in 
+    a game.        
+15. "phase": game number.                  
+16. "points": how many games the subject won out of ten games.              
+17. "response": the subject's actual response (I know/I don't know).          
+18. "round": the round number of a data point.                
+19. "RT": the subject's reaction time for each round (counting from the onset of the previous announcement).  
+20. "should_know": at which turn should the subject know her card (9 turns total, 10 means she never should know).
+21. "subj": the subject ID.       
+22. "numRound": the maximum number of round the game reaches if the subject keeps responding I don't know.
 
-    ['4', 'A8A8AA', 'Amy,Ben,You', '[[False, False, False], [True, False, True]]', 'False', '', 'False', 'False', 
-        'False', '1', '1', '0', 'A8A8AA', '14.664', '5', '27.6', '25', '4', '6', '2', '29', '0']
-    ['4', 'A8A8AA', 'Amy,Ben,You', '[[False, False, False], [True, False, True]]', 'False', '', 'True', 'False', 
-        'True', '2', '1', '0', 'A8A8AA', '2.14', '5', '27.6', '25', '4', '6', '2', '29', '0']
-    '''
+ACTUAL data structure (not copied):
+1. phase - game number
+2. cards - game state, where the first two cards are the participant's, the second two cards are Amy's, 
+the third two cards are Ben's
+3. order - Turn order each round
+4. outcomeArray - Perfect answers for this situation
+5. response - True if the subject says 'I know', False if the subject says 'I don't know'
+6. answer - AA/88/A8, what the subject says he/she has ('' if response is False).
+7. AmyResponse - what Amy said in this round ('' if game ended before Amy got a turn) (True/False)
+8. BenResponse - what Ben said in this round ('' if game ended before Ben got a turn) (True/False)
+9. corAnswer - what the subject should respond (True, False)
+10. round - round number
+11. subj - subject ID
+12. outcome - Did the subject win or lose (0 if lost, 1 if won)
+13. cards_iso - Equivalent game state that starts with A (same if the game state already starts with A)
+14. RT - reaction time
+15. points - how many games subject won out of 10 games (where you win if you make NO mistakes)
+16. exp_time - time to finish entire experiment
+17. number - number guess in p-beauty
+18. inference_level - epistemic level required to solve this case
+19. should_know - At which turn out of 3x3=9 should the subject know his/her cards (10 if never)
+20. numRound - maximum round game reaches if subject keeps responding "I don't know"
+21. age - subject age
+22. gender - subject sex
 
+['4', 'A8A8AA', 'Amy,Ben,You', '[[False, False, False], [True, False, True]]', 'False', '', 'False', 'False', 
+    'False', '1', '1', '0', 'A8A8AA', '14.664', '5', '27.6', '25', '4', '6', '2', '29', '0']
+['4', 'A8A8AA', 'Amy,Ben,You', '[[False, False, False], [True, False, True]]', 'False', '', 'True', 'False', 
+    'True', '2', '1', '0', 'A8A8AA', '2.14', '5', '27.6', '25', '4', '6', '2', '29', '0']
+'''
 
 def readcedegaodata():
     # First, we need to convert the .csv to usable data types
-    toint = [0, 9, 10, 11, 14, 16, 17, 18, 19, 20, 21]  # Convert to int
-    tofloat = [13, 15]  # Convert to float
-    tobool = [4, 6, 7, 8]  # Conver to boal
+    toint = [0, 9, 10, 11, 14, 16, 17, 18, 19, 20, 21]  # These columns need to be converted to int
+    tofloat = [13, 15]  # Columns to be converted to float
+    tobool = [4, 6, 7, 8]  # Columns to be converted to bool
     toboollist = [3]  # Convert to list of list of bools
-    toeval = toint + tofloat + tobool + toboollist  # Everything we need to convert
+    toeval = toint + tofloat + tobool + toboollist  # All columns that need to be evaluated
     with open('data.csv', newline='') as csvfile:  # Open the .csv
         datareader = csv.reader(csvfile, delimiter=',', quotechar='"')  # Create a .csv reader
         datalist = []  # We need to convert from csv reader to list, as list has indices
-        for row in datareader:
+        for row in datareader:  # Copy data rows into list
             datalist.append(row.copy())
-        for i in range(len(datalist)):  # Loop over data and convert each
+        for i in range(len(datalist)):  # Loop over data rows and convert each row
             if i != 0:  # Don't convert header
-                for j in toeval:
+                for j in toeval:  # Loop over columns that need evaluating
                     if datalist[i][j] == "":  # This happens if Amy/Ben didn't get a chance to respond in a round
                         datalist[i][j] = None
                     else:
@@ -385,47 +395,48 @@ def readcedegaodata():
         return datalist
 
 '''
-    Reads cedegao's data and removes columns we are not interested in
+Reads cedegao's data and removes columns we are not interested in
 
-        ACTUAL data structure:
-    1. phase - game number
-    2. cards - game state, where the first two cards are the participant's, the second two cards are Amy's, 
-    the third two cards are Ben's
-    3. order - Turn order each round
-    4. outcomeArray - Perfect answers for this situation
-    5. response - True if the subject says 'I know', False if the subject says 'I don't know'
-    6. answer - AA/88/A8, what the subject says he/she has ('' if response is False).
-    7. AmyResponse - what Amy said in this round ('' if game ended before Amy got a turn) (True/False)
-    8. BenResponse - what Ben said in this round ('' if game ended before Ben got a turn) (True/False)
-    9. corAnswer - what the subject should respond (True, False)
-    10. round - round number
-    11. subj - subject ID
-    12. outcome - Did the subject win or lose (0 if lost, 1 if won)
-    13. cards_iso - Equivalent game state that starts with A (same if the game state already starts with A)
-    14. RT - reaction time
-    15. points - how many games subject won out of 10 games (where you win if you make NO mistakes)
-    16. exp_time - time to finish entire experiment
-    17. number - number guess in p-beauty
-    18. inference_level - epistemic level required to solve this case
-    19. should_know - At which turn out of 3x3=9 should the subject know his/her cards (10 if never)
-    20. numRound - maximum round game reaches if subject keeps responding "I don't know"
-    21. age - subject age
-    22. gender - subject sex
+    ACTUAL data structure:
+1. phase - game number
+2. cards - game state, where the first two cards are the participant's, the second two cards are Amy's, 
+the third two cards are Ben's
+3. order - Turn order each round
+4. outcomeArray - Perfect answers for this situation
+5. response - True if the subject says 'I know', False if the subject says 'I don't know'
+6. answer - AA/88/A8, what the subject says he/she has ('' if response is False).
+7. AmyResponse - what Amy said in this round ('' if game ended before Amy got a turn) (True/False)
+8. BenResponse - what Ben said in this round ('' if game ended before Ben got a turn) (True/False)
+9. corAnswer - what the subject should respond (True, False)
+10. round - round number
+11. subj - subject ID
+12. outcome - Did the subject win or lose (0 if lost, 1 if won)
+13. cards_iso - Equivalent game state that starts with A (same if the game state already starts with A)
+14. RT - reaction time
+15. points - how many games subject won out of 10 games (where you win if you make NO mistakes)
+16. exp_time - time to finish entire experiment
+17. number - number guess in p-beauty
+18. inference_level - epistemic level required to solve this case
+19. should_know - At which turn out of 3x3=9 should the subject know his/her cards (10 if never)
+20. numRound - maximum round game reaches if subject keeps responding "I don't know"
+21. age - subject age
+22. gender - subject sex
 
-    input:
-    -extra: True to return extra data (game, round, turn)
-    '''
-
+Input:
+-extra: True to return extra data (game, round, turn)
+Output:
+-data[1:] - Data from Cedegao et al (2021), with all columns we are not interested in removed, and converted to our own conventions
+'''
 
 def prunecedegaodata(extra):
-    data = readcedegaodata()
-    for i in range(len(data)):
+    data = readcedegaodata()  # First read data from Cedegao et al (2021)
+    for i in range(len(data)):  # Loop over data rows
         row = data[i]
         temprow = [row[1], row[2], row[4], row[5], row[9], row[10]]  # Only rows we want
-        temprow[0] = temprow[0][0:2][::-1] + temprow[0][2:4][::-1] + temprow[0][4:6][::-1]  # Flip hands
+        temprow[0] = temprow[0][0:2][::-1] + temprow[0][2:4][::-1] + temprow[0][4:6][::-1]  # Flip hands (A8 becomes 8A)
 
         # Cedegao's states are ordered YYAABB (You, Amy Ben), whereas mine are ordered 001122 (first, second,
-        # third player in turn order)
+        # third player in turn order). This code converts the former to the latter.
         turnorderedgame = ""
         for player in row[2]:
             if player == "You":
@@ -437,11 +448,12 @@ def prunecedegaodata(extra):
                     if player == "Ben":
                         turnorderedgame += temprow[0][4:6]
 
-        # Turn answer into single string
+        # Turn answer into single string (e.g. 'True8A')
         if temprow[2]:
             answer = "True" + str(temprow[3])[::-1]
         else:
             answer = "False"
+
         # Figure out which turn (0,1,2) the player was playing
         turn = -1
         if temprow[1][0] == 'You':
@@ -453,54 +465,69 @@ def prunecedegaodata(extra):
                 if temprow[1][2] == 'You':
                     turn = 2
         round = -1
-        if i > 0:
-            round = temprow[4] - 1
+        if i > 0:  # Ignore the header
+            round = temprow[4] - 1  # Read which round this row corresponds to
             game = turnorderedgame + "rnd" + str(round) + "trn" + str(turn)  # Make game string
         else:  # Make sure header makes sense
             game = "game"
             answer = "answer"
 
-        if extra:
+        if extra:  # Include additional data
             data[i] = [temprow[5], game, answer, turnorderedgame, round, turn]
         else:
             data[i] = [temprow[5], game, answer]
-    # ['True88', 3, '8A8A8Arnd2trn2', 0.9, 0.1]
     return data[1:]
 
 '''
-   Same as prunecedegaodata, but instead of one row per game round it returns one row for all rounds of each game
-   '''
+Same as prunecedegaodata, but instead of one row per game round it returns one row for all rounds of each game
+Input:
+-removefirstrow - Whether to remove game identifier string from data
+Output:
+-newerdat - list of lists with
+--Game ID string
+--Player ID
+--Game state
+--Turn
+--List of player answers
+'''
 
 
 def prunecedegaodata_game(removefirstrow):
-    cedat = prunecedegaodata(True)
+    cedat = prunecedegaodata(True)  # Get data from Cedegao et al (2021) that is relevant for us
 
-    newdat = []
-    games = []
+    newdat = []  # List of participant games, with elements game ID, player ID, state, turn, and a list of player answers
+    games = []  # List of games that were played, represented as string containing player ID, game state, and turn
+
     # First make a list with a row for each combination of player/state/turn (but NOT round)
-    for datrow in cedat:
-        game = datrow[1]
+    for datrow in cedat:  # Loop over rows in Cedegao et al (2021)'s data
+        game = datrow[1]  # Unique string representing the combination of state/round/turn
         fullgame = str(datrow[0]) + "s" + game[:6] + game[10:]  # Remove 'rnd#' from string, add player ID
         if fullgame not in games:
             games.append(fullgame)
             newdat.append([fullgame, datrow[0], datrow[3], datrow[5], []])  # Unique ID, player ID,
-            # state, turn
+            # state, turn, empty list where answers will be stored
         datrow.append(fullgame)
+
     # Now loop through the data and make a list of answers for each player in each game
-    for datrow in cedat:
-        for newrow in newdat:
-            if newrow[0] == datrow[-1]:
-                newrow[4].append(datrow[2])
+    for datrow in cedat:  # Loop over rows in Cedegao et al (2021)'s data
+        for newrow in newdat:  # Loop over rows in our new data structure
+            if newrow[0] == datrow[-1]:  # If they describe the same participant/state/turn
+                newrow[4].append(datrow[2])  # Add the answer to the new data structure
+
     # Group participant answers
-    newerdat = [[]]
-    curid = newdat[0][1]
-    for datrow in newdat:
+    newerdat = [[]]  # List with, for each participant, a list with, for each combination of state/turn that participant played a list with that player's answers
+    curid = newdat[0][1]  # Set to first participant (1)
+    for datrow in newdat:  # Loop over rows in data (one row for each game)
+
+        # Add game to existing participant's games or start a new list for a new participant and add game to that
         if datrow[1] == curid:
             newerdat[-1].append(datrow)
         else:
             curid = datrow[1]
             newerdat.append([])
             newerdat[-1].append(datrow)
+
+    # Remove game ID string if needed
     if removefirstrow:
         for i in range(len(newerdat)):
             for j in range(len(newerdat[i])):
@@ -508,21 +535,19 @@ def prunecedegaodata_game(removefirstrow):
     return newerdat
 
 '''
-    Returns answers for aces and eights for all combinations of true states, player turn locations, player turn (first, 
-    middle, or last), answering round, assuming error = 0 and update_prob = 1, and all previous answers were perfect,
-    using Cedegao et al 2021's original method.
+Returns answers for aces and eights for all combinations of true states, player turn locations, player turn (first, 
+middle, or last), answering round, assuming error = 0 and update_prob = 1, and all previous answers were perfect,
+using Cedegao et al 2021's original method.
 
-    input:
-    -repetitions - number of times each case is repeated
-    -error: error in Cedegao's model
-    output:
-    -totaloutput - a list with 1) the state of these answers, 2) the epistemic level of the agents for these answers, 
-    3) the repetition number of this repetition, and 4) a list with for each round, a list with for each turn, 
-    the player's answer. Each answer is a 3-tuple with whether the player knows (bool), whether the player's graph is 
-    empty (bool), and the actual answer (string)
-
-     This function is used to verify whether my implementations generate the same answers as Cedegao et al's
-    '''
+Input:
+-repetitions - number of times each case is repeated
+-error: error in Cedegao's model
+Output:
+-totaloutput - a list with 1) the state of these answers, 2) the epistemic level of the agents for these answers, 
+3) the repetition number of this repetition, and 4) a list with for each round, a list with for each turn, 
+the player's answer. Each answer is a 3-tuple with whether the player knows (bool), whether the player's graph is 
+empty (bool), and the actual answer (string)
+'''
 
 def allacesandeights_anyerror_and_update_cedegao(repetitions, error):
     verbose = False  # Set to True to output intermediate steps to console for debugging
@@ -531,8 +556,7 @@ def allacesandeights_anyerror_and_update_cedegao(repetitions, error):
     a8mm.gen_noself_visibs()  # Players can't see themselves
     perfecta8model = a8mm.generate_pw_model()  # Full and perfect possible world model for this game
     allstates = a8mm.possible_worlds  # List of all states
-    # allstates = ["8A888A"] # REMOVE - Used as a single case for debugging
-    a8mmc = bounded_modal_model()  # Initialize a bounded modal
+    a8mmc = bounded_modal_model()  # Initialize a bounded epistemic model, directly calls code in Cedegao et al (2021)
     for state in allstates:  # Loop over all states
         if verbose:  # For debugging
             print(state)
@@ -545,19 +569,20 @@ def allacesandeights_anyerror_and_update_cedegao(repetitions, error):
             print("perfectanswers: " + str(perfectanswers))
         statecs = [statec, statec[2:4] + statec[0:2] + statec[4:6], statec[4:6] + statec[0:2] + statec[2:4]]  #
         # Cedegao et al uses the convention that the first two cards in a state are the
-        # player's the second two are Amy's, and the third two are Ben's, whereas we order hands by player order
+        # player's, the second two are Amy's, and the third two are Ben's, whereas we order hands by player order
         # (first two belong to the player first in turn order, et cetera)
         if verbose:
             print("statecs: " + str(statecs))
-        for level in range(0, (5 + 1)):  # Loop over levels #[4]:# REMOVE - replace with single level for debugging
-            for rep in range(repetitions):  # Loop over repititions
+        for level in range(0, (5 + 1)):  # Loop over levels
+            for rep in range(repetitions):  # Loop over number of repititions
                 outputanswers = []  # List of answers an agent of this level should make in this position
                 # Create restricted models for all three players
-                restrictedmodels = [None, None, None]
-                othercards = [None, None, None]
-                # orders = [['You','Amy','Ben'],['Amy','You','Ben'],['Amy','Ben', 'You']]
+                restrictedmodels = [None, None, None]  # One model for each player
+                othercards = [None, None, None]  # For each player, list of cards from the perspective of that player
                 if verbose:
                     print("Amy: " + statec[2:4] + ", Ben: " + statec[4:6])
+
+                # For each player, create a bounded epistemic model by calling the code from Cedegao et al (2021)
                 restrictedmodels[0] = a8mmc.generate_partial_model(statec[2:4], statec[4:6], level=level)
                 othercards[0] = [statec[2:4], statec[4:6], statec[0:2]]  # Amy, Ben, self
                 restrictedmodels[1] = a8mmc.generate_partial_model(statec[0:2], statec[4:6], level=level)
@@ -566,6 +591,8 @@ def allacesandeights_anyerror_and_update_cedegao(repetitions, error):
                 othercards[2] = [statec[0:2], statec[2:4], statec[4:6]]
                 if verbose:  # For debugging
                     print("othercards: " + str(othercards))
+
+                #Simulate playin the game
                 for rnd in range(len(perfectanswers)):  # Loop over rounds
                     outputanswers.append([])  # Answers for this round
                     if verbose:  # For debugging
@@ -589,7 +616,7 @@ def allacesandeights_anyerror_and_update_cedegao(repetitions, error):
                             print("")
                             print("Model updates:")
                         for i in range(len(restrictedmodels)):  # Then, update all the models
-                            playerorder = [2, 3]  # In some cases in Cedegao et al (2021)'s code, order is always
+                            playerorder = [2, 3]  # In Cedegao et al (2021)'s code, order is always
                             # assumed to be You - Amy - Ben. We use the convention 'first player - second player
                             # - third player - etc', so we need to translate between them
                             playerorder.insert(i, 1)  # 1-2-3 if the player is first, 2-1-3 if the player is
@@ -602,18 +629,22 @@ def allacesandeights_anyerror_and_update_cedegao(repetitions, error):
                             restrictedmodels[i] = a8mmc.update_model(restrictedmodels[i],
                                                                      perfectanswers[rnd][player], playerorder[
                                                                          player])  # Update the model based on  #
-                            # announced PERFECT answer, not the ACTUAL answer
+                            # announced PERFECT answer, not the ACTUAL answer (uses Cedegao et al (2021)'s code)
                 totaloutput.append([state, level, rep, outputanswers])  # Add current case to output
     return totaloutput
 
 '''
 Library of states, turns, and sequence of announcements
+
 input:
 -maxtom - Maximum ToM level under consideration
 -reftom - Does reflexive count as ToM? True for yes, False for no.
 -confbi - Do agents have confirmation bias?
 -lono - Do agents lower their ToM to find an answer?
 -usecedegao - If true, use epistemically bounded models instead of ToM models
+
+output:
+-statedict - Dictionary - Keys are string consisting of state, turn, round, values are lists of predicted answers for each model, assuming previous answers were perfect
 '''
 
 
@@ -655,16 +686,24 @@ def gamelibrary(maxtom, reftom=True, delon=False, confbi=False, lono=False, usec
                             else:
                                 outans = (1, [canswer[2]])
                         anslist.append(outans)
-                    statedict[str(state) + str(round) + str(turn)] = anslist
-
+                    statedict[str(state) + str(round) + str(turn)] = anslist  # Add it to the dictionary
     return statedict
 
 '''
 Returns predicted answers vs. actual answers for all subjects
+
 input:
 -maxtom - maximum ToM under consideration
 -verbose - if False, output list only contains subject id, predicted answers for each ToM, and actual answer
     if True, also contains state, turn, and round for each answer
+-reftom - parameter, whether reflexive arrows count as ToM
+-delon - parameter, whether tuples should be deleted if there are no outgoing edges
+-confbi - parameter, confirmation bias. If true, do not delete tuples if you KNOW your symbols.
+-lono - parameter. If true, if there are no outgoing edges, lower your ToM until you find one where there are
+-usecedegao - If true, generate predictions for epistemically bounded models instead of ToM models
+
+output:
+-outlist - List of predicted answers vs. actual answers for all subjects
 '''
 
 
@@ -691,6 +730,8 @@ Input:
 -lono - parameter. If true, if there are no outgoing edges, lower your ToM until you find one where there are
 -maxtom - Maximum level under consideration
 -usecedegao - If true, generate predictions for epistemically bounded models instead of ToM models
+
+Output: none
 '''
 
 def predictionstocsv(name='tompredictions.csv', reftom=True, delon=False, confbi=False, lono=False, maxtom=5,
@@ -747,6 +788,7 @@ def predictionstocsv(name='tompredictions.csv', reftom=True, delon=False, confbi
 
 '''
 Write, to a file, log-likelihoods per player, per ToM, as well as the random model.
+
 Input:
 -maxtom - Maximum level under consideration
 -filenamestart - First string in filenames for created files
@@ -756,6 +798,8 @@ Input:
 -perfect - Use perfect answers instead of participant's answers
 -emptyincorrect - Model always gives incorrect prediction if the graph is empty (instead of `I don't know')
 -usecedegao - Set to true to use epistemically bounded model instead of ToM models
+
+Output: none
 '''
 
 def writeloglistans(maxtom=5, filenamestart='tom_refTrue_delonFalse_', reftom=True, delon=False, penalty=0.5,
@@ -802,6 +846,8 @@ penalty - p in n(1-e)*ln(1-e) + ne*ln(p*e) where e is error rate and n is number
 perfect - If true, fit RFX-BMS on 'fake data' where all participants answered perfectly (for testing)
 emptyincorrect - If true, the model's prediction is always incoherent if there are no outgoing edges. If false, the model answers `I do not know my cards' when there are no outgoing edges.
 usecedegao - If true, run RFX-BMS on epistemically bounded models. If false, run RFX-BMS on ToM models
+
+Output: none
 '''
 def rfxbms(maxtom=5, filenamestart = 'tom_refTrue_delonFalse_', reftom = True, delon = False, convergediff=0.001, penalty=0.5, perfect = False, emptyincorrect = False, usecedegao = False):
     verbose = False  # Set to true for debugging
@@ -999,6 +1045,7 @@ def drawmodel_toms(tomsmodel, savename, layout, pos=None, anss=None, correct=Non
             maxv = pos[i][1]
     vdiff = maxv - minv  # Vertical distance between highest and lowest node
     nodelist = [(a, b) for (a, b) in todraw.nodes(data="state")]  # List of nodes (id, state) tuples
+
     # Draw nodes. Give different colours to true state, initial nodes, and all other nodes (if the former two are specified)
     if drawnodes:
         nx.draw_networkx_nodes(todraw, pos, [x[0] for x in nodelist if
@@ -1171,12 +1218,13 @@ def drawmodel_toms(tomsmodel, savename, layout, pos=None, anss=None, correct=Non
         pos[i][1] = pos[i][1] + (0.35 * edgeoffset * vdiff)
     return pos  # Return node positions for future drawings
 
+# Main function that gets run when code is executed, produces the images and data needed for the paper
 def runtask():
     print("Drawing figures...")
     a8pm = PerfectModel(3, 2, "8888AAAA", "noself")  # Make perfect model for Aces and Eights
     a8pm.fullmodel_to_directed_reflexive()  # Turn non-directed graph without reflexive arrows into directed graph with reflexive arrows
     tsm = ToMsModel(a8pm, 5)  # Create a ToM model for Aces and Eights, maximum level 5
-    layout = "spectral"
+    layout = "spectral"  # Node layout algorithm
     pos = drawmodel_toms(tsm, "Figure1", layout, drawnodes = False)  # Draw and save model for Figure 1
     drawmodel_toms(tsm, "Figure2a", layout, pos=pos, drawreflexive=True, drawtoms=True, statefont=9,
                    edgefntsz=9, fntsz=9)  # Draw and save model for Figure 2a
@@ -1209,4 +1257,4 @@ def runtask():
 start = timeit.default_timer()
 runtask()
 stop = timeit.default_timer()
-print('Total time required: ', stop - start)
+print('Total time required: ', stop - start)  # Also print time needed to run

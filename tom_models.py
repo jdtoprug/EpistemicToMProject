@@ -412,11 +412,308 @@ class PerfectModel:
                 removenodes.append(node[0])
         return removenodes, nodesremoved
 
+'''
+ToM model where each note is annotated with, for each player, each ToM level
+'''
+class ToMsModel:
+    '''
+    Initialization function
+    '''
+    def __init__(self, newpmodel, newmaxtom=0, newfull=None):
+        self.pmodel = newpmodel  # PerfectModel object. self.pmodel.fmodel must be a DiGraph where each edge has variable players (list of player
+        # numbers), and each node has variable state (String). No edges must be omitted, even reflexive!
+        self.ends = self.pmodel.ends
+        self.untouchns = []
+        for w in self.pmodel.untouchables:
+            self.untouchns.append(self.statetonode(w))
+        self.maxtom = newmaxtom  # Highest ToM level the model has, int
+        self.full = newfull  # Whether the full graph should be used. None if yes, otherwise a list [s,p,t]
+        self.nodetomlist = []  # For each node, a list with for each player, a list with for each ToM-level, whether it still exists (True) or not (False)
+        self.actualstate = ""  # Actual state's name
+        self.player = -1  # Graph owner
+        self.level = -1  # Graph owner's ToM level
+        self.actualn = -1  # Actual state's id
+        self.initialstates = []  # Initial states
+        self.generate_nodetomlist()  # Fills nodetomlist appropriately
+
+    '''
+    Fills nodetomlist variable
+    '''
+    def generate_nodetomlist(self):
+        nodelist = list(self.pmodel.fmodel.nodes())  # Grab all nodes from the full model
+        nodelist.sort()  # Sort nodes by number
+        nodelist = nodelist[::-1]  # Reverse so highest number is in front
+        highestnode = nodelist[0]  # Grab the highest number
+        highestp = self.pmodel.playercount - 1  # Highest player
+
+        if not self.full is None:
+            startbool = False
+        else:
+            startbool = True
+
+        # All tuples exist unless if specified otherwise
+        for n in range(highestnode + 1):
+            self.nodetomlist.append([])
+            for p in range(highestp + 1):
+                self.nodetomlist[n].append([])
+                for t in range(self.maxtom + 1):
+                    self.nodetomlist[n][p].append(startbool)
+
+        if not self.full is None:
+            self.actualstate = self.full[0]
+            edgelist = self.pmodel.fmodel.edges(data = "players")
+
+            n = self.statetonode(self.full[0])
+            self.actualn = n
+            p = self.full[1]
+            t = self.full[2]
+            self.player = p
+            self.level = t
+            nexttuples = []
+            prevtuples = [[n, p, t]]
+            havetuples = [[n,p,t]]
+            for i in range(t):
+                prevtuples.append([n, p, i])
+                havetuples.append([n,p,i])
+                self.initialstates.append(n)
+            # Grow graph outwards
+            while len(prevtuples) != 0:
+
+                for [n,p,t] in prevtuples:  # Loop over tuples
+                    outedges = [(u,v,l) for (u,v,l) in edgelist if u == n]  # Get outgoing edges from n
+                    for (u,v,l) in outedges:  # Loop over edges
+                        for edgeplayer in l:  # Loop over players
+                            if edgeplayer == p and n != v and [v,p,t] not in havetuples:
+                                havetuples.append([v,p,t])
+                                nexttuples.append([v,p,t])
+                            else:
+                                if t-1 >= 0 and [v,edgeplayer,t-1] not in havetuples:
+                                    havetuples.append([v, edgeplayer, t-1])
+                                    nexttuples.append([v, edgeplayer, t-1])
+                prevtuples = nexttuples
+                nexttuples = []
+            for [n,p,t] in havetuples:
+                self.nodetomlist[n][p][t] = True
+    '''
+    Return all answers up to a certain ToM
+    input:
+    -node - node number of the actual state
+    -player - player id
+    -maxtom - Maximum ToM level under consideration
+    -lowknow - lower your ToM when you can't find answers?
+    '''
+    def allanswerlist(self, node, player, maxtom, lowknow=False):
+        anss = []
+        for i in range(maxtom + 1):
+            anss.append(self.answerlist(node, player, i, lowknow=lowknow))
+        return anss
+
+    '''
+    Takes a node name and return the number
+    '''
+
+    def statetonode(self, s):
+        return [i for (i,state) in self.pmodel.fmodel.nodes(data="state") if s == state][0]
+
+    '''
+    Whether player player answers 'I know my cards' (True) or 'I don't know my cards' (False) if node is the actual node and the player has ToM level tom
+    lowknow - if you don't know, but you know in a lower level, switch to lower level? True if yes.
+
+    As output a tuple bool, list, where list is the list of possibilities
+    If you answer 'I don't know', you still return a list of possibilities
+    '''
+
+    def answerlist(self, node, player, tom, lowknow=False):
+        hndsz = self.pmodel.handsize
+        statenodes = self.pmodel.fmodel.nodes(
+            data="state")  # List of 2-tuples where the first element is the node id and the second element is the node's state as string
+        nodepossibs = [v for (u, v, l) in
+                       self.pmodel.fmodel.edges(data="players") if
+                       u == node and player in l]  # Nodes announcing player considers possible in this node
+        actualhandpossibs = []  # Only nodes with edge to <player,tom>
+        for n in nodepossibs:
+            if self.nodetomlist[n][player][tom]:  # If tuple exists
+                actualhandpossibs.append(statenodes[n][player * hndsz: (player * hndsz) + hndsz])
+        actualhandpossibs = set(actualhandpossibs)  # Remove duplicates
+        numpossibs = len(actualhandpossibs)  # Number of possibilities for your own hand
+        if numpossibs == 1:  # You know your hand
+            actualhandpossibs = list(actualhandpossibs)
+            return 1, actualhandpossibs
+        else:
+            if numpossibs == 0:  # No outgoing edges
+                if not lowknow:
+                    actualhandpossibs = list(actualhandpossibs)
+                    return -1, actualhandpossibs
+                else:
+                    print("Lower ToM until positive answer is found (1)")
+                    done = False  # Stop condition
+                    while not done:
+                        tom = tom - 1
+                        print("Testing tom " + str(tom))
+                        if tom == -1:
+                            actualhandpossibs = list(actualhandpossibs)
+                            return -1, actualhandpossibs
+                        actualhandpossibs = []  # Only nodes with edge to <player,tom>
+                        for n in nodepossibs:
+                            print("Checking node: " + str(self.nodetostate(n)))
+                            if self.nodetomlist[n][player][tom]:  # If tuple exists
+                                actualhandpossibs.append(statenodes[n][player * hndsz: (player * hndsz) + hndsz])
+                        actualhandpossibs = set(actualhandpossibs)
+                        numpossibs = len(actualhandpossibs)
+                        if numpossibs == 1:  # Found a positive answer!
+                            actualhandpossibs = list(actualhandpossibs)
+                            return 1, actualhandpossibs
+            else:  # 2 or more possibilities, you don't know your hand
+                if not lowknow:
+                    actualhandpossibs = list(actualhandpossibs)
+                    actualhandpossibs.sort()
+                    return 0, actualhandpossibs  # Say 'I don't know', but also return what you think is still possible, for model fitting
+                else:  # Lower your ToM until you find a positive answer
+                    print("Lower ToM until positive answer is found (2)")
+                    done = False  # Stop condition
+                    while not done:
+                        tom = tom - 1
+                        print("Testing tom " + str(tom))
+                        if tom == -1:
+                            actualhandpossibs = list(actualhandpossibs)
+                            actualhandpossibs.sort()
+                            return 0, actualhandpossibs
+                        actualhandpossibs = []  # Only nodes with edge to <player,tom>
+                        for n in nodepossibs:
+                            print("Checking node: " + str(self.nodetostate(n)))
+                            if self.nodetomlist[n][player][tom]:  # If tuple exists
+                                print(statenodes[n][player * hndsz: (player * hndsz) + hndsz])
+                                actualhandpossibs.append(statenodes[n][player * hndsz: (player * hndsz) + hndsz])
+                        actualhandpossibs = set(actualhandpossibs)
+                        numpossibs = len(actualhandpossibs)
+                        if numpossibs == 1:  # Found a positive answer!
+                            actualhandpossibs = list(actualhandpossibs)
+                            return 1, actualhandpossibs
+
+    '''
+        Update model on announcement
+
+        knows - whether the announcing player knows (True is `I know my cards', False is `I don't know my cards')
+        player - player number of announcing player
+        reflexivetom - whether reflexive arrows are counted as ToM
+        delonempty - Remove tuples with ToM-1 or higher if there are no outgoing edges for the announcement
+        confbias - If true, do not remove initial nodes if you know your hand
+        lowknow - Assume the announcer, if announcing true, may have lowered their ToM to obtain a true instead of false answer
+        '''
+
+    def update(self, knows, player, reflexivetom = True, ans="", delonempty = False, confbias = False, lowknow = False):
+        lowknow = False
+        newnodetomlist = []
+        setfalselist = []
+        statenodes = self.pmodel.fmodel.nodes(data = "state")
+        hndsz = self.pmodel.handsize
+        for n in range(len(self.nodetomlist)):  # Loop over nodes
+            newnodetomlist.append([])
+            nodepossibs = [v for (u,v,l) in
+                                     self.pmodel.fmodel.edges(data = "players") if u == n and player in l]  # Nodes announcing player considers possible in this node
+            for p in range(len(self.nodetomlist[n])):  # Loop over players
+                newnodetomlist[n].append([])
+                if lowknow:
+                    truelowerexists = False
+                for t in range(len(self.nodetomlist[n][p])):  # Loop over ToM levels
+                    value = self.nodetomlist[n][p][t]  # True if it still exists
+                    newnodetomlist[n][p].append(value)
+                    if value:  # If it exists
+                        newtom = t  # Don't change ToM when considering own edges
+                        if player != p:  # If node doesn't belong to announcing player, subtract 1 ToM level
+                            newtom = newtom - 1
+                        actualnodepossibs = []
+                        for n2 in nodepossibs:
+                            if reflexivetom:
+                                if newtom >= 0 and self.nodetomlist[n2][player][newtom]:
+                                    actualnodepossibs.append(n2)  # Only consider nodes that still have the tuple
+                            else:  # Reflexive doesn't count
+                                if player == p:  # No changes on own announcement
+                                    if newtom >= 0 and self.nodetomlist[n2][player][newtom]:
+                                        actualnodepossibs.append(n2)
+                                else:
+                                    if n != n2:  # No changes for non-reflexive
+                                        if newtom >= 0 and self.nodetomlist[n2][player][newtom]:
+                                            actualnodepossibs.append(n2)
+                                    else:  # Reflexive!
+                                        if newtom >= 0 and self.nodetomlist[n2][player][newtom+1]:
+                                            actualnodepossibs.append(n2)
+                        handpossibs = []  # Hands player considers possible
+                        for n2 in actualnodepossibs:
+                            nstate = statenodes[n2]
+                            pcards = nstate[player * hndsz: (player * hndsz) + hndsz]
+                            handpossibs.append(pcards)
+                        handpossibs = set(handpossibs)
+
+                        numpossibs = len(handpossibs)  # Number of unique hand possibilities announcing player has
+
+                        if numpossibs != 0:  # There are outgoing edges
+                            if knows:  # If announcement is 'I know', remove node if it has uncertainty or if it does
+                                # not correspond to announcement
+                                if numpossibs > 1:
+                                    if not lowknow:
+                                        setfalselist.append([n,p,t])
+                                    else:
+                                        if not truelowerexists or player != p:
+                                            setfalselist.append([n, p, t])
+                                else:  # 1 possibility
+                                    if ans != "" and numpossibs == 1:  # Announcer gives an answer
+                                        if ans != list(handpossibs)[0]:  # Answer does not correspond to node
+                                            if not confbias:
+                                                setfalselist.append([n, p, t])
+                                            else:  # Confirmation bias
+                                                if n not in self.initialstates:  # Only remove if you don't know
+                                                    setfalselist.append([n, p, t])
+                                        else:
+                                            if lowknow and player == p:
+                                                truelowerexists = True
+                                    else:  # No answer
+                                        if lowknow and player == p:
+                                            if numpossibs == 1:
+                                                truelowerexists = True
+                            else:  # If announcement is 'I don't know', remove node if it has NO uncertainty
+                                if numpossibs == 1:
+                                    if not confbias:
+                                        setfalselist.append([n, p, t])
+                                    else:
+                                        if n not in self.initialstates:  # Only remove if you don't know
+                                            setfalselist.append([n, p, t])
+                        else:  # No outgoing edges
+                            if delonempty and t > 0:  # Delete with no outgoing edges if ToM > 0 and variable is set
+                                setfalselist.append([n, p, t])
+        for [n,p,t] in setfalselist:
+            if not self.ends:
+                self.nodetomlist[n][p][t] = False
+            else:
+                if n not in self.untouchns:
+                    self.nodetomlist[n][p][t] = False
+    '''
+    Creates a string for a node
+    For example
+    0: 0, 1, 2 (agent 0 can have ToM 0, 1 or 2 in this node)
+    1: 0, 1, 2 (agent 1 can have ToM 0, 1 or 2 in this node)
+    '''
+    def nodestring(self,nodenum):
+        tomlist = self.nodetomlist[nodenum]
+        outstr = ""
+        for p in range(self.pmodel.playercount):
+            outstr = outstr + str(p) + ": "
+            for t in range(self.maxtom + 1):
+                if tomlist[p][t]:
+                    outstr = outstr + str(t) + ", "
+                else:
+                    outstr = outstr + (" "*len(str(t))) + "  "
+            outstr = outstr[:-2]
+            outstr = outstr + "\n"
+        outstr = outstr[:-1]
+        return outstr
+'''
+Deprecated bounded model class that got entangled in our older code and is now a chore to replace
+'''
 class MuddyModel:
     """
     Initialization function: always called when object of this class is created
-    """
-
+     """
     def __init__(self, newpcount=0, newhandsize=0, newsymbs="", newvis=None, newpws=None, newedges=None, newmodel=None,
                  newhandpossibs=None, newinteriornodes=None, newinteriorstates=None, newstatenodes=None,
                  newstatedict=None, newlevel = 0):
@@ -786,300 +1083,4 @@ class MuddyModel:
         outstr = ""
         for substr in inlist:  # Loop over characters in list and append to string
             outstr = outstr + substr
-        return outstr
-
-'''
-ToM model where each note is annotated with, for each player, each ToM level
-'''
-class ToMsModel:
-    '''
-    Initialization function
-    '''
-    def __init__(self, newpmodel, newmaxtom=0, newfull=None):
-        self.pmodel = newpmodel  # PerfectModel object. self.pmodel.fmodel must be a DiGraph where each edge has variable players (list of player
-        # numbers), and each node has variable state (String). No edges must be omitted, even reflexive!
-        self.ends = self.pmodel.ends
-        self.untouchns = []
-        for w in self.pmodel.untouchables:
-            self.untouchns.append(self.statetonode(w))
-        self.maxtom = newmaxtom  # Highest ToM level the model has, int
-        self.full = newfull  # Whether the full graph should be used. None if yes, otherwise a list [s,p,t]
-        self.nodetomlist = []  # For each node, a list with for each player, a list with for each ToM-level, whether it still exists (True) or not (False)
-        self.actualstate = ""  # Actual state's name
-        self.player = -1  # Graph owner
-        self.level = -1  # Graph owner's ToM level
-        self.actualn = -1  # Actual state's id
-        self.initialstates = []  # Initial states
-        self.generate_nodetomlist()  # Fills nodetomlist appropriately
-
-    '''
-    Fills nodetomlist variable
-    '''
-    def generate_nodetomlist(self):
-        nodelist = list(self.pmodel.fmodel.nodes())  # Grab all nodes from the full model
-        nodelist.sort()  # Sort nodes by number
-        nodelist = nodelist[::-1]  # Reverse so highest number is in front
-        highestnode = nodelist[0]  # Grab the highest number
-        highestp = self.pmodel.playercount - 1  # Highest player
-
-        if not self.full is None:
-            startbool = False
-        else:
-            startbool = True
-
-        # All tuples exist unless if specified otherwise
-        for n in range(highestnode + 1):
-            self.nodetomlist.append([])
-            for p in range(highestp + 1):
-                self.nodetomlist[n].append([])
-                for t in range(self.maxtom + 1):
-                    self.nodetomlist[n][p].append(startbool)
-
-        if not self.full is None:
-            self.actualstate = self.full[0]
-            edgelist = self.pmodel.fmodel.edges(data = "players")
-
-            n = self.statetonode(self.full[0])
-            self.actualn = n
-            p = self.full[1]
-            t = self.full[2]
-            self.player = p
-            self.level = t
-            nexttuples = []
-            prevtuples = [[n, p, t]]
-            havetuples = [[n,p,t]]
-            for i in range(t):
-                prevtuples.append([n, p, i])
-                havetuples.append([n,p,i])
-                self.initialstates.append(n)
-            # Grow graph outwards
-            while len(prevtuples) != 0:
-
-                for [n,p,t] in prevtuples:  # Loop over tuples
-                    outedges = [(u,v,l) for (u,v,l) in edgelist if u == n]  # Get outgoing edges from n
-                    for (u,v,l) in outedges:  # Loop over edges
-                        for edgeplayer in l:  # Loop over players
-                            if edgeplayer == p and n != v and [v,p,t] not in havetuples:
-                                havetuples.append([v,p,t])
-                                nexttuples.append([v,p,t])
-                            else:
-                                if t-1 >= 0 and [v,edgeplayer,t-1] not in havetuples:
-                                    havetuples.append([v, edgeplayer, t-1])
-                                    nexttuples.append([v, edgeplayer, t-1])
-                prevtuples = nexttuples
-                nexttuples = []
-            for [n,p,t] in havetuples:
-                self.nodetomlist[n][p][t] = True
-    '''
-    Return all answers up to a certain ToM
-    input:
-    -node - node number of the actual state
-    -player - player id
-    -maxtom - Maximum ToM level under consideration
-    -lowknow - lower your ToM when you can't find answers?
-    '''
-    def allanswerlist(self, node, player, maxtom, lowknow=False):
-        anss = []
-        for i in range(maxtom + 1):
-            anss.append(self.answerlist(node, player, i, lowknow=lowknow))
-        return anss
-
-    '''
-    Takes a node name and return the number
-    '''
-
-    def statetonode(self, s):
-        return [i for (i,state) in self.pmodel.fmodel.nodes(data="state") if s == state][0]
-
-    '''
-    Whether player player answers 'I know my cards' (True) or 'I don't know my cards' (False) if node is the actual node and the player has ToM level tom
-    lowknow - if you don't know, but you know in a lower level, switch to lower level? True if yes.
-
-    As output a tuple bool, list, where list is the list of possibilities
-    If you answer 'I don't know', you still return a list of possibilities
-    '''
-
-    def answerlist(self, node, player, tom, lowknow=False):
-        hndsz = self.pmodel.handsize
-        statenodes = self.pmodel.fmodel.nodes(
-            data="state")  # List of 2-tuples where the first element is the node id and the second element is the node's state as string
-        nodepossibs = [v for (u, v, l) in
-                       self.pmodel.fmodel.edges(data="players") if
-                       u == node and player in l]  # Nodes announcing player considers possible in this node
-        actualhandpossibs = []  # Only nodes with edge to <player,tom>
-        for n in nodepossibs:
-            if self.nodetomlist[n][player][tom]:  # If tuple exists
-                actualhandpossibs.append(statenodes[n][player * hndsz: (player * hndsz) + hndsz])
-        actualhandpossibs = set(actualhandpossibs)  # Remove duplicates
-        numpossibs = len(actualhandpossibs)  # Number of possibilities for your own hand
-        if numpossibs == 1:  # You know your hand
-            actualhandpossibs = list(actualhandpossibs)
-            return 1, actualhandpossibs
-        else:
-            if numpossibs == 0:  # No outgoing edges
-                if not lowknow:
-                    actualhandpossibs = list(actualhandpossibs)
-                    return -1, actualhandpossibs
-                else:
-                    print("Lower ToM until positive answer is found (1)")
-                    done = False  # Stop condition
-                    while not done:
-                        tom = tom - 1
-                        print("Testing tom " + str(tom))
-                        if tom == -1:
-                            actualhandpossibs = list(actualhandpossibs)
-                            return -1, actualhandpossibs
-                        actualhandpossibs = []  # Only nodes with edge to <player,tom>
-                        for n in nodepossibs:
-                            print("Checking node: " + str(self.nodetostate(n)))
-                            if self.nodetomlist[n][player][tom]:  # If tuple exists
-                                actualhandpossibs.append(statenodes[n][player * hndsz: (player * hndsz) + hndsz])
-                        actualhandpossibs = set(actualhandpossibs)
-                        numpossibs = len(actualhandpossibs)
-                        if numpossibs == 1:  # Found a positive answer!
-                            actualhandpossibs = list(actualhandpossibs)
-                            return 1, actualhandpossibs
-            else:  # 2 or more possibilities, you don't know your hand
-                if not lowknow:
-                    actualhandpossibs = list(actualhandpossibs)
-                    actualhandpossibs.sort()
-                    return 0, actualhandpossibs  # Say 'I don't know', but also return what you think is still possible, for model fitting
-                else:  # Lower your ToM until you find a positive answer
-                    print("Lower ToM until positive answer is found (2)")
-                    done = False  # Stop condition
-                    while not done:
-                        tom = tom - 1
-                        print("Testing tom " + str(tom))
-                        if tom == -1:
-                            actualhandpossibs = list(actualhandpossibs)
-                            actualhandpossibs.sort()
-                            return 0, actualhandpossibs
-                        actualhandpossibs = []  # Only nodes with edge to <player,tom>
-                        for n in nodepossibs:
-                            print("Checking node: " + str(self.nodetostate(n)))
-                            if self.nodetomlist[n][player][tom]:  # If tuple exists
-                                print(statenodes[n][player * hndsz: (player * hndsz) + hndsz])
-                                actualhandpossibs.append(statenodes[n][player * hndsz: (player * hndsz) + hndsz])
-                        actualhandpossibs = set(actualhandpossibs)
-                        numpossibs = len(actualhandpossibs)
-                        if numpossibs == 1:  # Found a positive answer!
-                            actualhandpossibs = list(actualhandpossibs)
-                            return 1, actualhandpossibs
-
-    '''
-        Update model on announcement
-
-        knows - whether the announcing player knows (True is `I know my cards', False is `I don't know my cards')
-        player - player number of announcing player
-        reflexivetom - whether reflexive arrows are counted as ToM
-        delonempty - Remove tuples with ToM-1 or higher if there are no outgoing edges for the announcement
-        confbias - If true, do not remove initial nodes if you know your hand
-        lowknow - Assume the announcer, if announcing true, may have lowered their ToM to obtain a true instead of false answer
-        '''
-
-    def update(self, knows, player, reflexivetom = True, ans="", delonempty = False, confbias = False, lowknow = False):
-        lowknow = False
-        newnodetomlist = []
-        setfalselist = []
-        statenodes = self.pmodel.fmodel.nodes(data = "state")
-        hndsz = self.pmodel.handsize
-        for n in range(len(self.nodetomlist)):  # Loop over nodes
-            newnodetomlist.append([])
-            nodepossibs = [v for (u,v,l) in
-                                     self.pmodel.fmodel.edges(data = "players") if u == n and player in l]  # Nodes announcing player considers possible in this node
-            for p in range(len(self.nodetomlist[n])):  # Loop over players
-                newnodetomlist[n].append([])
-                if lowknow:
-                    truelowerexists = False
-                for t in range(len(self.nodetomlist[n][p])):  # Loop over ToM levels
-                    value = self.nodetomlist[n][p][t]  # True if it still exists
-                    newnodetomlist[n][p].append(value)
-                    if value:  # If it exists
-                        newtom = t  # Don't change ToM when considering own edges
-                        if player != p:  # If node doesn't belong to announcing player, subtract 1 ToM level
-                            newtom = newtom - 1
-                        actualnodepossibs = []
-                        for n2 in nodepossibs:
-                            if reflexivetom:
-                                if newtom >= 0 and self.nodetomlist[n2][player][newtom]:
-                                    actualnodepossibs.append(n2)  # Only consider nodes that still have the tuple
-                            else:  # Reflexive doesn't count
-                                if player == p:  # No changes on own announcement
-                                    if newtom >= 0 and self.nodetomlist[n2][player][newtom]:
-                                        actualnodepossibs.append(n2)
-                                else:
-                                    if n != n2:  # No changes for non-reflexive
-                                        if newtom >= 0 and self.nodetomlist[n2][player][newtom]:
-                                            actualnodepossibs.append(n2)
-                                    else:  # Reflexive!
-                                        if newtom >= 0 and self.nodetomlist[n2][player][newtom+1]:
-                                            actualnodepossibs.append(n2)
-                        handpossibs = []  # Hands player considers possible
-                        for n2 in actualnodepossibs:
-                            nstate = statenodes[n2]
-                            pcards = nstate[player * hndsz: (player * hndsz) + hndsz]
-                            handpossibs.append(pcards)
-                        handpossibs = set(handpossibs)
-
-                        numpossibs = len(handpossibs)  # Number of unique hand possibilities announcing player has
-
-                        if numpossibs != 0:  # There are outgoing edges
-                            if knows:  # If announcement is 'I know', remove node if it has uncertainty or if it does
-                                # not correspond to announcement
-                                if numpossibs > 1:
-                                    if not lowknow:
-                                        setfalselist.append([n,p,t])
-                                    else:
-                                        if not truelowerexists or player != p:
-                                            setfalselist.append([n, p, t])
-                                else:  # 1 possibility
-                                    if ans != "" and numpossibs == 1:  # Announcer gives an answer
-                                        if ans != list(handpossibs)[0]:  # Answer does not correspond to node
-                                            if not confbias:
-                                                setfalselist.append([n, p, t])
-                                            else:  # Confirmation bias
-                                                if n not in self.initialstates:  # Only remove if you don't know
-                                                    setfalselist.append([n, p, t])
-                                        else:
-                                            if lowknow and player == p:
-                                                truelowerexists = True
-                                    else:  # No answer
-                                        if lowknow and player == p:
-                                            if numpossibs == 1:
-                                                truelowerexists = True
-                            else:  # If announcement is 'I don't know', remove node if it has NO uncertainty
-                                if numpossibs == 1:
-                                    if not confbias:
-                                        setfalselist.append([n, p, t])
-                                    else:
-                                        if n not in self.initialstates:  # Only remove if you don't know
-                                            setfalselist.append([n, p, t])
-                        else:  # No outgoing edges
-                            if delonempty and t > 0:  # Delete with no outgoing edges if ToM > 0 and variable is set
-                                setfalselist.append([n, p, t])
-        for [n,p,t] in setfalselist:
-            if not self.ends:
-                self.nodetomlist[n][p][t] = False
-            else:
-                if n not in self.untouchns:
-                    self.nodetomlist[n][p][t] = False
-    '''
-    Creates a string for a node
-    For example
-    0: 0, 1, 2 (agent 0 can have ToM 0, 1 or 2 in this node)
-    1: 0, 1, 2 (agent 1 can have ToM 0, 1 or 2 in this node)
-    '''
-    def nodestring(self,nodenum):
-        tomlist = self.nodetomlist[nodenum]
-        outstr = ""
-        for p in range(self.pmodel.playercount):
-            outstr = outstr + str(p) + ": "
-            for t in range(self.maxtom + 1):
-                if tomlist[p][t]:
-                    outstr = outstr + str(t) + ", "
-                else:
-                    outstr = outstr + (" "*len(str(t))) + "  "
-            outstr = outstr[:-2]
-            outstr = outstr + "\n"
-        outstr = outstr[:-1]
         return outstr
