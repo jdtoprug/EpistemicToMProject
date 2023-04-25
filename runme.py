@@ -1,3 +1,7 @@
+'''
+runme.py, when run, should generated all data and figures needed for the paper, except the figures created in R
+'''
+
 # Imports
 
 import timeit
