@@ -655,11 +655,10 @@ class ToMsModel:
     player - player number of announcing player
     reflexivetom - whether reflexive arrows are counted as ToM
     delonempty - Remove tuples with ToM-1 or higher if there are no outgoing edges for the announcement
-    confbias - If true, do not remove initial nodes if you know your hand
     
     Output: none
     '''
-    def update(self, knows, player, reflexivetom = True, ans="", delonempty = False, confbias = False):
+    def update(self, knows, player, reflexivetom = True, ans="", delonempty = False):
         newnodetomlist = []  # List to replace class variable with
         setfalselist = []  # Which ToMs are no longer considered possible?
         statenodes = self.pmodel.fmodel.nodes(data = "state")  # List of nodes with states
@@ -710,18 +709,10 @@ class ToMsModel:
                                 else:  # 1 possibility
                                     if ans != "" and numpossibs == 1:  # Announcer gives an answer
                                         if ans != list(handpossibs)[0]:  # Answer does not correspond to node
-                                            if not confbias:
-                                                setfalselist.append([n, p, t])  # Mark for removal
-                                            else:  # Confirmation bias
-                                                if n not in self.initialstates:  # Only remove if you don't know
-                                                    setfalselist.append([n, p, t])
+                                            setfalselist.append([n, p, t])  # Mark for removal
                             else:  # If announcement is 'I don't know', remove node if it has NO uncertainty
                                 if numpossibs == 1:  # One option, no uncertainty
-                                    if not confbias:
-                                        setfalselist.append([n, p, t])  # Mark for removal
-                                    else:  # Confirmation bias
-                                        if n not in self.initialstates:  # Only remove if you don't know already
-                                            setfalselist.append([n, p, t])
+                                    setfalselist.append([n, p, t])  # Mark for removal
                         else:  # No outgoing edges
                             if delonempty and t > 0:  # Delete with no outgoing edges if ToM > 0 and variable is set
                                 setfalselist.append([n, p, t])

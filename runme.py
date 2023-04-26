@@ -247,8 +247,8 @@ def csvtopredictions(name='tompredictions.csv'):
     file.close()
 
     # Convert everything from string to Python objects
-    for i in range(len(outlist)):
-        if i != 0 and i < 3761:  # Only subject data
+    for i in range(len(outlist))[1:]:
+        if i < 3761:  # Only subject data
             for j in [0,1,3,4]:
                 outlist[i][j] = int(outlist[i][j])
             for j in [5,6,7,8,9,10]:
@@ -642,7 +642,6 @@ Library of states, turns, and sequence of announcements
 input:
 -maxtom - Maximum ToM level under consideration
 -reftom - Does reflexive count as ToM? True for yes, False for no.
--confbi - Do agents have confirmation bias?
 -usecedegao - If true, use epistemically bounded models instead of ToM models
 
 output:
@@ -650,7 +649,7 @@ output:
 '''
 
 
-def gamelibrary(maxtom, reftom=True, delon=False, confbi=False, usecedegao=False):
+def gamelibrary(maxtom, reftom=True, delon=False, usecedegao=False):
     a8pm = PerfectModel(3, 2, "8888AAAA", "noself")  # Make perfect model for Aces and Eights
     a8pm.fullmodel_to_directed_reflexive()  # Turn non-directed graph without reflexive arrows in directed graph with reflexive arrows
 
@@ -670,7 +669,7 @@ def gamelibrary(maxtom, reftom=True, delon=False, confbi=False, usecedegao=False
         for round in range(len(panss)):  # Loop over rounds
             for turn in range(len(panss[round])):  # Loop over turns
                 statedict[str(state) + str(round) + str(turn)] = tsm.allanswerlist(tsm.statetonode(state), turn, maxtom)  # Save answers
-                tsm.update(panss[round][turn], turn, reflexivetom=reftom, delonempty=delon, confbias=confbi)  # Update the model
+                tsm.update(panss[round][turn], turn, reflexivetom=reftom, delonempty=delon)  # Update the model
                 if usecedegao:
                     statecdans = [x[3] for x in cedanss if state == x[0]]  # Predicted answers for each EL for this combination of state/round/turn
 
@@ -698,7 +697,6 @@ input:
     if True, also contains state, turn, and round for each answer
 -reftom - parameter, whether reflexive arrows count as ToM
 -delon - parameter, whether tuples should be deleted if there are no outgoing edges
--confbi - parameter, confirmation bias. If true, do not delete tuples if you KNOW your symbols.
 -usecedegao - If true, generate predictions for epistemically bounded models instead of ToM models
 
 output:
@@ -706,8 +704,8 @@ output:
 '''
 
 
-def allsubjpairs(maxtom, verbose=False, reftom=True, delon=False, confbi=False, usecedegao=False):
-    lib = gamelibrary(maxtom, reftom=reftom, delon=delon, confbi=confbi,
+def allsubjpairs(maxtom, verbose=False, reftom=True, delon=False, usecedegao=False):
+    lib = gamelibrary(maxtom, reftom=reftom, delon=delon,
                       usecedegao=usecedegao)  # Get predicted answers for all states, turns, rounds
     cdat = prunecedegaodata_game(False)  # Prune cedegao data
     pack = [lib, cdat]  # Pack the above together to pass to subjpairs
@@ -725,16 +723,15 @@ Input:
 -name - Filename to write
 -reftom - parameter, whether reflexive arrows count as ToM
 -delon - parameter, whether tuples should be deleted if there are no outgoing edges
--confbi - parameter, confirmation bias. If true, do not delete tuples if you KNOW your symbols.
 -maxtom - Maximum level under consideration
 -usecedegao - If true, generate predictions for epistemically bounded models instead of ToM models
 
 Output: none
 '''
 
-def predictionstocsv(name='tompredictions.csv', reftom=True, delon=False, confbi=False, maxtom=5,
+def predictionstocsv(name='tompredictions.csv', reftom=True, delon=False, maxtom=5,
                      usecedegao=False):
-    outlist = allsubjpairs(maxtom, verbose=True, reftom=reftom, delon=delon, confbi=confbi,
+    outlist = allsubjpairs(maxtom, verbose=True, reftom=reftom, delon=delon,
                            usecedegao=usecedegao)  # List with, for each participant, decision point, and ToM, a predicted answer for that combination, as well as the participant's actual answer
     a8pm = PerfectModel(3, 2, "8888AAAA", "noself")  # Make perfect model for Aces and Eights
     a8pm.fullmodel_to_directed_reflexive()  # Turn non-directed graph without reflexive arrows in directed graph with reflexive arrows
@@ -776,7 +773,6 @@ def predictionstocsv(name='tompredictions.csv', reftom=True, delon=False, confbi
             writelist.append(subjlist)
     writelist.append(["reftom", reftom])  # Also add parameter settings to output
     writelist.append(["delon", delon])
-    writelist.append(["confbi", confbi])
 
     # Write list of predictions to file
     with open(name, 'w', encoding='UTF8', newline='') as file:
@@ -802,7 +798,7 @@ Output: none
 
 def writeloglistans(maxtom=5, filenamestart='tom_refTrue_delonFalse_', reftom=True, delon=False, penalty=0.5,
                     perfect=False, emptyincorrect=False, usecedegao=False):
-    predictionstocsv(name=filenamestart + 'predictions.csv', reftom=reftom, delon=delon, confbi=False,
+    predictionstocsv(name=filenamestart + 'predictions.csv', reftom=reftom, delon=delon,
                      maxtom=maxtom, usecedegao=usecedegao)  # Make list of predicted answers
     predictions = csvtopredictions(filenamestart + 'predictions.csv')  # Read list predictions answers
     outlist = []  # List of rows that need to be written to a file
