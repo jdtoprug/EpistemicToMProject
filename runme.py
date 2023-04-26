@@ -553,18 +553,17 @@ the player's answer. Each answer is a 3-tuple with whether the player knows (boo
 empty (bool), and the actual answer (string)
 '''
 
-def allacesandeights_anyerror_and_update_cedegao(repetitions, error):
+def allacesandeights_anyerror_and_update_cedegao_2(repetitions, error):
     verbose = False  # Set to True to output intermediate steps to console for debugging
     totaloutput = []  # Our to-be-returned list
-    a8mm = MuddyModel(3, 2, "AAAA8888")  # The game
-    a8mm.gen_noself_visibs()  # Players can't see themselves
+    a8mm = PerfectModel(3, 2, "AAAA8888", "noself")  # The game
     perfecta8model = a8mm.generate_pw_model()  # Full and perfect possible world model for this game
     allstates = a8mm.possible_worlds  # List of all states
     a8mmc = bounded_modal_model()  # Initialize a bounded epistemic model, directly calls code in Cedegao et al (2021)
     for state in allstates:  # Loop over all states
         if verbose:  # For debugging
             print(state)
-        perfectanswers, _ = a8mm.perfectanswers([0, 1, 2], state, perfecta8model, False)  #
+        perfectanswers, _ = a8mm.perfectanswers([0, 1, 2], state, False)  #
         # Perfect answers for this state
         statec = a8mm.mirrorhands(state, 2)  # Mirror all hands - my method uses e.g. 8A whereas Cedegao et al's
         # uses A8
@@ -644,7 +643,6 @@ input:
 -maxtom - Maximum ToM level under consideration
 -reftom - Does reflexive count as ToM? True for yes, False for no.
 -confbi - Do agents have confirmation bias?
--lono - Do agents lower their ToM to find an answer?
 -usecedegao - If true, use epistemically bounded models instead of ToM models
 
 output:
@@ -652,12 +650,12 @@ output:
 '''
 
 
-def gamelibrary(maxtom, reftom=True, delon=False, confbi=False, lono=False, usecedegao=False):
+def gamelibrary(maxtom, reftom=True, delon=False, confbi=False, usecedegao=False):
     a8pm = PerfectModel(3, 2, "8888AAAA", "noself")  # Make perfect model for Aces and Eights
     a8pm.fullmodel_to_directed_reflexive()  # Turn non-directed graph without reflexive arrows in directed graph with reflexive arrows
 
     if usecedegao:
-        cedanss = allacesandeights_anyerror_and_update_cedegao(1, 0)  # Get answers from epistemically bounded models
+        cedanss = allacesandeights_anyerror_and_update_cedegao_2(1, 0)  # Get answers from epistemically bounded models
         # Columns are: state, level, list of answers for each round/turn
         # Each answer is a three-tuple with
         # A bool for Know/don't know,
@@ -671,10 +669,8 @@ def gamelibrary(maxtom, reftom=True, delon=False, confbi=False, lono=False, usec
         panss, _ = a8pm.perfectanswers([0, 1, 2], state, False)  # Perfect answers
         for round in range(len(panss)):  # Loop over rounds
             for turn in range(len(panss[round])):  # Loop over turns
-                statedict[str(state) + str(round) + str(turn)] = tsm.allanswerlist(tsm.statetonode(state), turn, maxtom,
-                                                                                   lowknow=lono)  # Save answers
-                tsm.update(panss[round][turn], turn, reflexivetom=reftom, delonempty=delon, confbias=confbi,
-                           lowknow=lono)  # Update the model
+                statedict[str(state) + str(round) + str(turn)] = tsm.allanswerlist(tsm.statetonode(state), turn, maxtom)  # Save answers
+                tsm.update(panss[round][turn], turn, reflexivetom=reftom, delonempty=delon, confbias=confbi)  # Update the model
                 if usecedegao:
                     statecdans = [x[3] for x in cedanss if state == x[0]]  # Predicted answers for each EL for this combination of state/round/turn
 
@@ -703,7 +699,6 @@ input:
 -reftom - parameter, whether reflexive arrows count as ToM
 -delon - parameter, whether tuples should be deleted if there are no outgoing edges
 -confbi - parameter, confirmation bias. If true, do not delete tuples if you KNOW your symbols.
--lono - parameter. If true, if there are no outgoing edges, lower your ToM until you find one where there are
 -usecedegao - If true, generate predictions for epistemically bounded models instead of ToM models
 
 output:
@@ -711,8 +706,8 @@ output:
 '''
 
 
-def allsubjpairs(maxtom, verbose=False, reftom=True, delon=False, confbi=False, lono=False, usecedegao=False):
-    lib = gamelibrary(maxtom, reftom=reftom, delon=delon, confbi=confbi, lono=lono,
+def allsubjpairs(maxtom, verbose=False, reftom=True, delon=False, confbi=False, usecedegao=False):
+    lib = gamelibrary(maxtom, reftom=reftom, delon=delon, confbi=confbi,
                       usecedegao=usecedegao)  # Get predicted answers for all states, turns, rounds
     cdat = prunecedegaodata_game(False)  # Prune cedegao data
     pack = [lib, cdat]  # Pack the above together to pass to subjpairs
@@ -731,16 +726,15 @@ Input:
 -reftom - parameter, whether reflexive arrows count as ToM
 -delon - parameter, whether tuples should be deleted if there are no outgoing edges
 -confbi - parameter, confirmation bias. If true, do not delete tuples if you KNOW your symbols.
--lono - parameter. If true, if there are no outgoing edges, lower your ToM until you find one where there are
 -maxtom - Maximum level under consideration
 -usecedegao - If true, generate predictions for epistemically bounded models instead of ToM models
 
 Output: none
 '''
 
-def predictionstocsv(name='tompredictions.csv', reftom=True, delon=False, confbi=False, lono=False, maxtom=5,
+def predictionstocsv(name='tompredictions.csv', reftom=True, delon=False, confbi=False, maxtom=5,
                      usecedegao=False):
-    outlist = allsubjpairs(maxtom, verbose=True, reftom=reftom, delon=delon, confbi=confbi, lono=lono,
+    outlist = allsubjpairs(maxtom, verbose=True, reftom=reftom, delon=delon, confbi=confbi,
                            usecedegao=usecedegao)  # List with, for each participant, decision point, and ToM, a predicted answer for that combination, as well as the participant's actual answer
     a8pm = PerfectModel(3, 2, "8888AAAA", "noself")  # Make perfect model for Aces and Eights
     a8pm.fullmodel_to_directed_reflexive()  # Turn non-directed graph without reflexive arrows in directed graph with reflexive arrows
@@ -808,7 +802,7 @@ Output: none
 
 def writeloglistans(maxtom=5, filenamestart='tom_refTrue_delonFalse_', reftom=True, delon=False, penalty=0.5,
                     perfect=False, emptyincorrect=False, usecedegao=False):
-    predictionstocsv(name=filenamestart + 'predictions.csv', reftom=reftom, delon=delon, confbi=False, lono=False,
+    predictionstocsv(name=filenamestart + 'predictions.csv', reftom=reftom, delon=delon, confbi=False,
                      maxtom=maxtom, usecedegao=usecedegao)  # Make list of predicted answers
     predictions = csvtopredictions(filenamestart + 'predictions.csv')  # Read list predictions answers
     outlist = []  # List of rows that need to be written to a file
@@ -1006,13 +1000,16 @@ pos - Dictionary of node positions. Useful for printing the same graph multiple 
 '''
 def drawmodel_toms(tomsmodel, savename, layout, pos=None, anss=None, correct=None, drawnodes = True, drawreflexive = False, drawtoms = False, statefont = 20, edgefntsz = 18, fntsz = 16):
     todraw = tomsmodel.pmodel.fmodel.copy()  # Don't want to modify the input model, just in case
-    ndsz = 300 #300  # Size of nodes
+    ndsz = 300 #default 300  # Size of nodes
     fgsz = 15  # Figure height/width
-    ndshp = 'o'  # Node shape
+    ndshp = 'o'  # Node shape, default 'o'
     ndlbcl = 'black'  # Node label colour
     edcl = 'black'  # Edge colour
     colorlist = ["orange", "yellow", "cyan"]  # Node colors
     edgeoffset = 0.1 # Offset for edge labels to ensure they are drawn on the edge itself
+    arrsz = 10  # Arrow size, default 10
+    ewd = 1  # Edge width, default 1
+    edga = 1  # Transparency for edges, default 1
     plt.figure(1, figsize=(fgsz, fgsz))  # Create empty drawing area
     plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)  # Remove most margins
 
@@ -1059,11 +1056,11 @@ def drawmodel_toms(tomsmodel, savename, layout, pos=None, anss=None, correct=Non
 
         nx.draw_networkx_nodes(todraw, pos, [x[0] for x in nodelist if x[0] == tomsmodel.actualn],
                                node_color=colorlist[1],
-                               node_size=ndsz)
+                               node_size=ndsz, node_shape = ndshp)
 
         nx.draw_networkx_nodes(todraw, pos, [x[0] for x in nodelist if x[0] in tomsmodel.untouchns],
                                node_color=colorlist[2],
-                               node_size=ndsz)
+                               node_size=ndsz, node_shape = ndshp)
 
     uniquestates = list(set([x[1] for x in todraw.nodes(data="state")]))  # Remove duplicate states
     uniquestates.sort()
@@ -1151,10 +1148,10 @@ def drawmodel_toms(tomsmodel, savename, layout, pos=None, anss=None, correct=Non
         edgelist = [x for x in edgelist if x not in overlaplist1 and x not in overlaplist2]  # Draw reflexive edges
     else:
         edgelist = [(a,b) for (a,b) in edgelist if (a,b) not in overlaplist1 and (a,b) not in overlaplist2 and a != b]  # Don't draw reflexive edges
-    nx.draw_networkx_edges(todraw, pos, edgelist, edge_color = edcl)  # Draw edges
+    nx.draw_networkx_edges(todraw, pos, edgelist, edge_color = edcl, arrowsize = arrsz, alpha = edga, width = ewd, node_size = ndsz, node_shape = ndshp)  # Draw edges
     rad = 0.6
-    nx.draw_networkx_edges(todraw, pos, overlaplist1, connectionstyle='arc3,rad=0.6', edge_color = edcl)  # Draw curved edges for overlapping edges
-    nx.draw_networkx_edges(todraw, pos, overlaplist2, connectionstyle='arc3,rad=-0.6', edge_color = edcl)  # Draw curved edges for overlapping edges
+    nx.draw_networkx_edges(todraw, pos, overlaplist1, connectionstyle='arc3,rad=0.6', edge_color = edcl, arrowsize = arrsz, alpha = edga, width = ewd, node_size = ndsz, node_shape = ndshp)  # Draw curved edges for overlapping edges
+    nx.draw_networkx_edges(todraw, pos, overlaplist2, connectionstyle='arc3,rad=-0.6', edge_color = edcl, arrowsize = arrsz, alpha = edga, width = ewd, node_size = ndsz, node_shape = ndshp)  # Draw curved edges for overlapping edges
 
     # Math to make sure edge labels match up with curved edges
     for (i,j) in newoverlapdict:

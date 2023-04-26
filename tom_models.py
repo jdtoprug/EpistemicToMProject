@@ -472,6 +472,24 @@ class PerfectModel:
                 removenodes.append(node[0])
         return removenodes, nodesremoved
 
+    '''
+    Mirror hands in possible world
+    Input:
+    -instr - String containing one or more hands
+    -hndsize - Hand size
+    Output:
+    -outstr - Input string with hands mirrored
+    '''
+
+    @staticmethod
+    def mirrorhands(instr, hndsize):
+        outstr = ""  # Start constructing output string
+        for i in range(int(len(instr) / hndsize)):  # Loop over hands in input string
+            substr = instr[i * hndsize:i * hndsize + hndsize]  # A hand
+            substr = substr[::-1]  # string[::-1] reverses a string
+            outstr = outstr + substr  # Add it to the output string
+        return outstr
+
 '''
 ToM model where each note is annotated with, for each player, each ToM level
 '''
@@ -566,15 +584,14 @@ class ToMsModel:
     -node - node number of the actual state
     -player - player id
     -maxtom - Maximum ToM level under consideration
-    -lowknow - lower your ToM when you can't find answers?
     
     Output:
     -anss - list of answers for each ToM level
     '''
-    def allanswerlist(self, node, player, maxtom, lowknow=False):
+    def allanswerlist(self, node, player, maxtom):
         anss = []
         for i in range(maxtom + 1):  # Get list of answers for each ToM level
-            anss.append(self.answerlist(node, player, i, lowknow=lowknow))
+            anss.append(self.answerlist(node, player, i))
         return anss
 
     '''
@@ -592,7 +609,6 @@ class ToMsModel:
 
     '''
     Whether player player answers 'I know my cards' (True) or 'I don't know my cards' (False) if node is the actual node and the player has ToM level tom
-    lowknow - if you don't know, but you know in a lower level, switch to lower level? True if yes.
 
     As output a tuple bool, list, where list is the list of possibilities
     If you answer 'I don't know', you still return a list of possibilities
@@ -601,13 +617,12 @@ class ToMsModel:
     -node - Node ID
     -player - Player ID
     -tom - ToM level
-    -lowknow - If True and you get no answer, lower your ToM until you find a ToM where you do have an answer
     
     Output:
     - - -1 for no outgoing edges, 0 for `I don't know my symbols', 1 for `I know my symbols'
     -actualhandpossibs - List of symbols agents still holds possible
     '''
-    def answerlist(self, node, player, tom, lowknow=False):
+    def answerlist(self, node, player, tom):
         hndsz = self.pmodel.handsize  # Hand size (duh)
         statenodes = self.pmodel.fmodel.nodes(
             data="state")  # List of 2-tuples where the first element is the node id and the second element is the node's state as string
@@ -625,54 +640,12 @@ class ToMsModel:
             return 1, actualhandpossibs
         else:
             if numpossibs == 0:  # No outgoing edges
-                if not lowknow:
-                    actualhandpossibs = list(actualhandpossibs)
-                    return -1, actualhandpossibs
-                else:  # If lowknow parameter is set to True, lower your ToM if you don't know the answer, until you find a ToM where you do know (don't set this parameter to True)
-                    print("Lower ToM until positive answer is found (1)")
-                    done = False  # Stop condition
-                    while not done:
-                        tom = tom - 1
-                        print("Testing tom " + str(tom))
-                        if tom == -1:
-                            actualhandpossibs = list(actualhandpossibs)
-                            return -1, actualhandpossibs
-                        actualhandpossibs = []  # Only nodes with edge to <player,tom>
-                        for n in nodepossibs:
-                            print("Checking node: " + str(self.nodetostate(n)))
-                            if self.nodetomlist[n][player][tom]:  # If tuple exists
-                                actualhandpossibs.append(statenodes[n][player * hndsz: (player * hndsz) + hndsz])
-                        actualhandpossibs = set(actualhandpossibs)
-                        numpossibs = len(actualhandpossibs)
-                        if numpossibs == 1:  # Found a positive answer!
-                            actualhandpossibs = list(actualhandpossibs)
-                            return 1, actualhandpossibs
+                actualhandpossibs = list(actualhandpossibs)
+                return -1, actualhandpossibs
             else:  # 2 or more possibilities, you don't know your hand
-                if not lowknow:
-                    actualhandpossibs = list(actualhandpossibs)
-                    actualhandpossibs.sort()
-                    return 0, actualhandpossibs  # Say 'I don't know', but also return what you think is still possible, which may possibly be useful for model fitting (but currently unused)
-                else:  # Lower your ToM until you find a positive answer (ignore this else)
-                    print("Lower ToM until positive answer is found (2)")
-                    done = False  # Stop condition
-                    while not done:
-                        tom = tom - 1
-                        print("Testing tom " + str(tom))
-                        if tom == -1:
-                            actualhandpossibs = list(actualhandpossibs)
-                            actualhandpossibs.sort()
-                            return 0, actualhandpossibs
-                        actualhandpossibs = []  # Only nodes with edge to <player,tom>
-                        for n in nodepossibs:
-                            print("Checking node: " + str(self.nodetostate(n)))
-                            if self.nodetomlist[n][player][tom]:  # If tuple exists
-                                print(statenodes[n][player * hndsz: (player * hndsz) + hndsz])
-                                actualhandpossibs.append(statenodes[n][player * hndsz: (player * hndsz) + hndsz])
-                        actualhandpossibs = set(actualhandpossibs)
-                        numpossibs = len(actualhandpossibs)
-                        if numpossibs == 1:  # Found a positive answer!
-                            actualhandpossibs = list(actualhandpossibs)
-                            return 1, actualhandpossibs
+                actualhandpossibs = list(actualhandpossibs)
+                actualhandpossibs.sort()
+                return 0, actualhandpossibs  # Say 'I don't know', but also return what you think is still possible, which may possibly be useful for model fitting (but currently unused)
 
     '''
     Update model on announcement
@@ -687,7 +660,6 @@ class ToMsModel:
     Output: none
     '''
     def update(self, knows, player, reflexivetom = True, ans="", delonempty = False, confbias = False):
-        lowknow = False  # We don't do this anymore
         newnodetomlist = []  # List to replace class variable with
         setfalselist = []  # Which ToMs are no longer considered possible?
         statenodes = self.pmodel.fmodel.nodes(data = "state")  # List of nodes with states
@@ -698,8 +670,6 @@ class ToMsModel:
                                      self.pmodel.fmodel.edges(data = "players") if u == n and player in l]  # Nodes announcing player considers possible in this node
             for p in range(len(self.nodetomlist[n])):  # Loop over players
                 newnodetomlist[n].append([])
-                if lowknow:  # Deprecated
-                    truelowerexists = False
                 for t in range(len(self.nodetomlist[n][p])):  # Loop over ToM levels
                     value = self.nodetomlist[n][p][t]  # True if it still exists
                     newnodetomlist[n][p].append(value)
@@ -736,11 +706,7 @@ class ToMsModel:
                             if knows:  # If announcement is 'I know', remove node if it has uncertainty or if it does
                                 # not correspond to announcement
                                 if numpossibs > 1:  # There is uncertainty
-                                    if not lowknow:
-                                        setfalselist.append([n,p,t])  # Mark for removal
-                                    else:   # We don't do lowknow anymore
-                                        if not truelowerexists or player != p:
-                                            setfalselist.append([n, p, t])
+                                    setfalselist.append([n,p,t])  # Mark for removal
                                 else:  # 1 possibility
                                     if ans != "" and numpossibs == 1:  # Announcer gives an answer
                                         if ans != list(handpossibs)[0]:  # Answer does not correspond to node
@@ -749,13 +715,6 @@ class ToMsModel:
                                             else:  # Confirmation bias
                                                 if n not in self.initialstates:  # Only remove if you don't know
                                                     setfalselist.append([n, p, t])
-                                        else:
-                                            if lowknow and player == p:   # lowknow deprecated
-                                                truelowerexists = True
-                                    else:  # No answer
-                                        if lowknow and player == p:  # lowknow deprecated
-                                            if numpossibs == 1:
-                                                truelowerexists = True
                             else:  # If announcement is 'I don't know', remove node if it has NO uncertainty
                                 if numpossibs == 1:  # One option, no uncertainty
                                     if not confbias:
@@ -798,443 +757,4 @@ class ToMsModel:
             outstr = outstr[:-2]
             outstr = outstr + "\n"  # Newline
         outstr = outstr[:-1]
-        return outstr
-
-'''
-Deprecated bounded model class that got entangled in our older code and is now a chore to replace, so we kept it
-'''
-class MuddyModel:
-    """
-    Initialization function: always called when object of this class is created
-     """
-    def __init__(self, newpcount=0, newhandsize=0, newsymbs="", newvis=None, newpws=None, newedges=None, newmodel=None,
-                 newhandpossibs=None, newinteriornodes=None, newinteriorstates=None, newstatenodes=None,
-                 newstatedict=None, newlevel = 0):
-        # Mutable default values cause weird issues so we initialize Nones and then replace those.
-        if newvis is None:
-            newvis = [[]]  # Which players can see which other players?
-        if newpws is None:
-            newpws = []  # List of possible worlds
-        if newedges is None:
-            newedges = [[]]  # List of edges
-        if newhandpossibs is None:
-            newhandpossibs = []  # List of all hands that are possible
-        if newinteriornodes == None:
-            newinteriornodes = []  # Interior nodes (numbers)
-        if newinteriorstates == None:
-            newinteriorstates = []  # Interior states (strings)
-        if newstatenodes == None:
-            newstatenodes = []  # ???
-        if newstatedict == None:
-            newstatedict = {}  # Dictionary of states
-        assert newpcount * newhandsize <= len(newsymbs), "Not enough symbols for all players!"
-        for pvis in newvis:
-            for player in pvis:
-                assert player < newpcount, "Player " + str(player) + " in vislist does not exist!"
-        self.possible_worlds = newpws  # List of possible worlds where each possible world is a string
-        self.edges = newedges  # List with, for each player, a list of tuples of ints. Each int is the unique
-        # identifier of
-        # a possible world, and a tuple is an edge indicating the player cannot distinguish these worlds.
-        self.playercount = newpcount  # The number of players in this game
-        self.handsize = newhandsize  # The number of cards/hats each player has
-        self.symbols = newsymbs  # A list of all available hats/cards
-        self.visibilities = newvis  # For each player a for each player b, True if player a can observe player b's
-        # symbols, False if not
-        self.model = newmodel  # Full possible worlds model
-        self.handpossibs = newhandpossibs  # All possible hands for all players
-        self.interiornodes = newinteriornodes
-        self.interiorstates = newinteriorstates
-        self.statenodes = newstatenodes
-        self.statedict = newstatedict
-        self.level = newlevel  # Reasoning level for this model
-
-    '''
-    Generate full visibility list given a player count (every player can see every other player), returns list of 
-    lists of Trues
-    
-    Input: none
-    Output:
-    -visibs - List of lists of bools showing which players can see which other players
-    '''
-
-    def gen_full_visibs(self):
-        visibs = []
-        for i in range(self.playercount):  # Loop over players
-            visibs.append([True] * self.playercount)  # Each player can see every other player
-        self.visibilities = visibs
-        return visibs
-
-    '''
-    Generate visibility list (list of lists of bools) for games where players can't see themselves, given a player 
-    count
-    
-    Output:
-    -visibs - List of list of bools - which players can see which other players.
-    '''
-
-    def gen_noself_visibs(self):
-        visibs = self.gen_full_visibs()  # Start by assuming everyone can see each other
-        for i in range(self.playercount):  # Loop over all players i
-            for j in range(self.playercount):  # Loop over all players j
-                if i == j:  # You can't see yourself
-                    visibs[i][j] = False
-        return visibs
-
-    '''
-    Generate the full Kripke possible world model given as object variables, the number of players, 
-    a list of available symbols,
-    the hand size for each player, and which players each player can see
-    
-    Input: none
-    Output: pwmodel - NetworkX graph object with model
-    '''
-    def generate_pw_model(self):
-        cardsingame = self.playercount * self.handsize  # Number of cards in the game
-
-        '''
-        First, we generate the list of possible worlds for this game
-        '''
-        symbperms = [list(symbtup[:cardsingame]) for symbtup in list(set(it.permutations(self.symbols)))]
-        # it.permutations returns a list of
-        # tuples of all permutations of the input list, assuming distinct objects. Since we do not, we have to
-        # convert to set and back to list to remove duplicates. Then we restrict a game state to the cards held by
-        # players (so no set-aside cards), and convert the tuples to lists
-
-        # At this point, symbperms is a list of lists of characters, where each sublist is a possible world with the
-        # same length as playercount * handsize, where the symbols are a subset of self.symbols.
-
-        # Remove isometric possible worlds
-        if self.handsize > 1:  # Only needed if players have more than one symbols, e.g. given two symbols A8 a hand A8
-            # is isometric to 8A
-            newsymbperms = []  # Replacement list to be constructed
-            for symblist in symbperms:  # Turn each sublist of characters (possible world) into a sublist of subsublists
-                # of characters where the subsublist is a single player's hand
-                newsymblist = []  # Possible world to be constructed, list of lists of characters, where each sublist
-                # is a hand
-                for i in range(0, len(symblist), self.handsize):  # Loop over hands (step size is hand size)
-                    tempsublist = symblist[i:i + self.handsize]  # List of characters which is the player's hand
-                    tempsublist.sort()  # Sort each player's hand so isometric hands are in the same order
-                    temphand = self.listtostring(tempsublist)  # We want to keep track of possible hands
-                    if temphand not in self.handpossibs:
-                        self.handpossibs.append(temphand)
-                    newsymblist.append(tempsublist)
-                # Now we have newsymblist, a list (possible world) of lists (hands) of symbols
-                newsymblist2 = []
-                for ahand in newsymblist:  # Convert back from list of lists to list
-                    for symb in ahand:
-                        newsymblist2.append(symb)
-                if newsymblist2 not in newsymbperms:  # Only add worlds that are not isometric to existing worlds
-                    newsymbperms.append(newsymblist2)
-            symbperms = newsymbperms
-        else:
-            for char in self.symbols:  # We want a list of all possible hands
-                if char not in self.handpossibs:
-                    self.handpossibs.append(char)
-
-        # Convert each of the sublists of characters to string (each of which is a possible world)
-        for i in range(len(symbperms)):  # For each possible world
-            symbperms[i] = self.listtostring(symbperms[i])  # Replace list of characters with string
-        symbperms.sort()  # Sort the possible worlds. At this point we finished generating the list of possible worlds
-        # for this game, which is a list of strings
-
-        # No we remove the duplicate possible worlds
-        nodups_symbperms = []
-        for perm in symbperms:
-            if perm not in nodups_symbperms:
-                nodups_symbperms.append(perm)
-        self.possible_worlds = nodups_symbperms  # Store the possible worlds model in the object
-
-        '''
-        Now we have to create the edges in the possible world model. Recall that we have
-        self.possible_worlds - A list of strings with each string a possible world
-        self.playercount - The number of players in the game
-        self.handsize - The number of symbols each player has
-        self.symbols - All symbols that exist in the game
-        self.visibilities - For each player a, a list of bools with for each player b, whether player a can see 
-        player b's symbols
-        '''
-        alledges = []  # List with for each player a list of edges (tuples) between possible worlds (ints)
-        for p1 in range(self.playercount):  # Loop over all players 1
-            p1vis = self.visibilities[p1]  # Get player 1's visibility list
-            p1edges = []  # List of edges for player 1
-            for pw1index in range(len(self.possible_worlds)):  # Loop over possible worlds 1
-                pw1 = self.possible_worlds[pw1index]  # We want to loop over indices to construct the edges,
-                # but we need the possible world itself as well
-                visiblepw1 = ""  # The portion of this possible world 1 that is visible to player 1. Could be empty!
-                for p2 in range(self.playercount):  # Loop over all players 2
-                    if p1vis[p2]:  # If player 1 can see this player
-                        visiblepw1 += pw1[p2 * self.handsize:(
-                                                                     p2 * self.handsize) + self.handsize]  # Add  #
-                        # this part of the possible world
-                for pw2index in range(len(self.possible_worlds)):  # Loop over possible worlds 2
-                    pw2 = self.possible_worlds[pw2index]  # Same as above
-                    if pw1 < pw2:  # One-directional non-reflexive edges
-                        visiblepw2 = ""  # The portion of this possible world 2 that is visible to player 1. Could be
-                        # empty!
-                        for p2 in range(self.playercount):  # Same as above
-                            if p1vis[p2]:
-                                visiblepw2 += pw2[p2 * self.handsize:(p2 * self.handsize) + self.handsize]
-                        if visiblepw1 == visiblepw2:  # If two possible worlds are indistinguishable
-                            newedge = (pw1index, pw2index)  # Give this player an edge between those worlds
-                            if newedge not in alledges:  # No duplicate edges
-                                p1edges.append(newedge)
-            alledges.append(p1edges)  # A list of edges for each player
-        self.edges = alledges
-
-        '''
-        Now we make the actual graph object (basically the same as Cedegao et al, 2021)
-        '''
-        pwmodel = nx.Graph()  # Empty undirected graph
-
-        # Add possible worlds to the graph
-        pwids = np.arange(0, len(self.possible_worlds), 1)  # List [0,1,2,...,#possible worlds]
-        for i in range(len(self.possible_worlds)):  # Add each of the nodes with identifiers 0, 1, 2, etc
-            pwmodel.add_node(pwids[i], state=self.possible_worlds[i])  # State is a string with each player's hand
-
-        # Add edges to the graph
-
-        # First, create a list of unique edges
-        uniqueedges = []  # List of unique edges to be constructed
-        for p in range(self.playercount):  # Loop over players
-            for e in range(len(self.edges[p])):  # Loop over each player's edges
-                if self.edges[p][e] not in uniqueedges:
-                    uniqueedges.append(self.edges[p][e])  # An edge is a 2-tuple of ints
-
-        # Then, we need to create an accompanying list showing which players access which edges
-        edgeplayers = []  # List with for each unique edge, a list of players that has access to it
-        for i in range(len(uniqueedges)):  # Loop over edges - for each unique edge, create a list of players that can
-            # access it
-            edge = uniqueedges[i]  # Current edge
-            edgeplayers.append([])  # Start constructing list of players that can access this edge
-            for p in range(self.playercount):  # Loop over each player's
-                for e in range(len(self.edges[p])):  # Edges
-                    if edge == self.edges[p][e]:  # If the player has access to this edge
-                        edgeplayers[i].append(p)  # Add that player to the edge access list
-
-        # Now we can create the edges: they consist of a 2-tuple of ints (possible worlds), and a list of ints (
-        # players with access to this edge)
-        for i in range(len(uniqueedges)):  # Now we add the edges to the model
-            if len(edgeplayers[i]) > 0:
-                pwmodel.add_edge(uniqueedges[i][0], uniqueedges[i][1], players=edgeplayers[i])
-
-        # Store the constructed graph and return it
-        self.model = pwmodel
-        return pwmodel
-
-    '''
-    Given a player order (list of ints), a possible world model, the actual true world (string), and whether 
-    announcements are simultaneous (bool), returns a list with for each round, for each turn, whether that player 
-    should answer 'True' or 'False'
-    
-    Input
-    -playerorder - List of player IDs - turn order each round
-    -actualstate - True state in the model
-    -pwmodel - Full possible world model
-    -simultaneous - If True, announcements are done simultaneously.
-    
-    Output:
-    -answerlist - List with for each round, list with for each turn, bool with perfect answer (True = `I know my symbols', False = `I don't know my symbols')
-    -equibstate - Round in which equilibrium is reached
-    '''
-    def perfectanswers(self, playerorder, actualstate, pwmodel, simultaneous):
-        assert len(actualstate) == len(pwmodel.nodes(data="state")[0]), actualstate + " is of length " + str(
-            len(actualstate)) + " whereas model states are of length " + str(len(pwmodel.nodes(data="state")[0]))  # Throw error when actual state doesn't have same length as states in the model
-        rnd = 0  # Round number for iteration
-        equibstate = 0  # The first round where the responses stay the same (equilibrium in responses)
-        answerlist = [[]]  # Output list (list of lists (players) of bools (their answers))
-        someoneremovednodes = True  # Stop iterating over rounds if noone removed any nodes - we have reached an
-        # equilibrium state
-        newmodel = pwmodel.copy()  # Don't want to modify the original
-        while someoneremovednodes:  # Keep playing rounds until the possible world models no longer change
-            someoneremovednodes = False  # Assume no changes to the model until proven otherwise
-            if simultaneous:  # If announcements are simultaneous, collect all player's announcements and update with
-                # them all at once
-                playerlist = []  # List of players
-                knowslist = []  # For each player, whether that player announces 'know' or 'don't know'
-            for player in playerorder:  # Loop over turns. Always play a full round even if an equilibrium state is
-                # reached before the end of the round
-                know, impossible, answer = self.perfectanswer(player, self.playerlook(player, actualstate),
-                                                              newmodel)  # Get the correct answer for this round,
-                # for this turn/player (ignore the actual answer - we assume players can ONLY announce 'I know'/'I
-                # don't know')
-                if impossible:  # Someone detects a lie/mistake - for now we assume we stop playing
-                    return answerlist
-                if not simultaneous:
-                    newmodel, thisplayerremovednodes = self.updatemodel_perfect(player, know, newmodel)  # Update the
-                    # model based on the player's correct announcement (if announcements are not simultaneous)
-                    if thisplayerremovednodes:
-                        someoneremovednodes = True  # If a player removes nodes during a round, play another round
-                else:  # Simultaneous update
-                    playerlist.append(player)
-                    knowslist.append(know)
-                answerlist[rnd].append(know)  # Always add player's announcement to output list
-            if simultaneous:
-                newmodel, someoneremovednodes = self.updatemodel_perfect_simultaneous(playerlist, knowslist, newmodel)  # Simultaneous update
-            if rnd > 0:  # Check for equilibrium state
-                if answerlist[rnd] != answerlist[equibstate]:  # Current state is not same as supposed equilibrium state
-                    equibstate = rnd  # Make the current state the equilibrium state - it will stay the same until a
-                    # difference is found
-            if someoneremovednodes:  # Get ready for the next round
-                answerlist.append([])
-            rnd += 1  # Increment round
-        return answerlist, equibstate
-
-    '''
-    Given a player (int), what the player sees (string), and a possible world model, returns whether the player knows 
-    his/her hand or not (bool), whether things are impossible (bool, someone lied or made a mistake), and the answer 
-    (string)
-    
-    Input:
-    -player - Player ID 
-    -observed - What this player sees
-    -model - Possible world model for this player
-    
-    Output:
-    - - True if `I know my symbols', False if `I don't know my symbols'
-    - - True if there are no outgoing edges 
-    - - String with anser (e.g. `8A' for `I have one Eight and one Ace')
-    '''
-    def perfectanswer(self, player, observed, model):
-        newmodel = model.copy()  # Don't want to modify the input
-        correctnodes = [x for x in newmodel.nodes(data="state") if observed == self.playerlook(player, x[1])]  # Nodes
-        # that correspond to the observed state
-
-        ownhandpossibs = set(
-            [x[1][player * self.handsize:player * self.handsize + self.handsize] for x in correctnodes])
-        # Unique possibilities for your own hand in the nodes that correspond to the observed state
-        if len(ownhandpossibs) > 1:  # There are two or more possibilities for your own hand - you don't know your hand
-            return False, False, ""
-        if len(ownhandpossibs) == 0:  # There are no possibilities for your own hand! Something went wrong!
-            return False, True, ""
-        if len(ownhandpossibs) == 1:  # There is exactly one possibility for your own hand - you know your hand
-            return True, False, correctnodes[0][1][player * self.handsize:player * self.handsize + self.handsize]
-
-    '''
-    Given a player (int) and the actual state (string), returns what that player sees (string, could be empty)
-    Input:
-    -player - Player ID
-    -curstate - Actual state
-    
-    Output:
-    -look - String, what this player sees in this state
-    '''
-
-    def playerlook(self, player, curstate):
-        look = ""  # Start output empty
-        for p2 in range(len(self.visibilities[player])):  # For each player that this player sees
-            if self.visibilities[player][p2]:  # If the player sees this other player
-                look += curstate[
-                        p2 * self.handsize:p2 * self.handsize + self.handsize]  # Add that player's symbols to the  #
-                # output
-        return look
-
-    '''
-    Update on announcement
-    Given a possible world model, a player number, and whether the player announces 'I know'(True) or not (
-    False), returns the possible world model which adheres to the announcement, as well as whether an update happened,
-    assuming a single announcement
-    
-    Input:
-    -player - Player ID 
-    -know - True for `I know my symbols', False for `I don't know my symbols'
-    -model - Possible world model to base answer on
-    
-    Output:
-    -newmodel - Model after update
-    -nodesremoved - True if any nodes have been removed
-    '''
-
-    def updatemodel_perfect(self, player, know, model):
-        newmodel = model.copy()  # We don't want to modify the original
-        removenodes, nodesremoved = self.updatemodel_perfect_nodes(player, know, model)  # Get nodes that should
-        # be removed
-
-        # Actually remove the nodes that should be removed
-        for node in model.nodes(data="state"):  # Loop over nodes
-            if node[0] in removenodes:  # If it should be removed
-                newmodel.remove_node(node[0])  # Remove it
-        return newmodel, nodesremoved
-
-    '''
-    Update on announcement, mostly taken from cadegao et al, 2021
-    Given a possible world model, a player number, and whether the player announces 'I know'(True) or not (
-    False), returns the nodes to be removed from the possible world model which adheres to the announcement, as well as 
-    whether an update happened
-    
-    Input:
-    -player - Player ID 
-    -know - True for `I know my symbols', False for `I don't know my symbols'
-    -model - Possible world model to base answer on
-    
-    Output:
-    -removenodes - List of nodes that should be removed based on this announcement
-    -nodesremoved - True if any nodes have been removed
-    '''
-
-    def updatemodel_perfect_nodes(self, player, know, model):
-        nodesremoved = False  # Whether any nodes were removed in this turn - needed to recognize equilibrium states
-        newmodel = model.copy()  # We don't want to modify the original
-
-        # First we make a list of nodes where the announcing player DOES NOT know his/her symbols (regardless of the
-        # announcement)
-        uncertainnodes = []  # Nodes where the player isn't certain about his/her HAND
-        for node in newmodel.nodes(data="state"):  # Loop over all nodes (and check for uncertainty)
-            owncards = node[1][
-                       player * self.handsize:player * self.handsize + self.handsize]  # The player's own symbols in
-            # this state
-            certain = True  # Assume no alternatives for the player's symbols until proven otherwise
-            for edge in [[e[0], e[1]] for e in newmodel.edges(data="players") if player in e[2]]:  # Loop over all the
-                # player's edges...
-                if node[0] in edge:  # ...connected to the node we are checking for uncertainty
-                    for node2 in edge:  # Loop over nodes this edge connects to (not optimal)
-                        if node[0] != node2:  # Don't compare node to itself
-                            if owncards != newmodel.nodes(data="state")[node2][
-                                           player * self.handsize:player * self.handsize + self.handsize]:  # If nodes
-                                # are connected by player edge and have different player symbols, there is uncertainty
-                                certain = False
-            if not certain:  # ...and if there is uncertainty, add this node to the list with uncertainties
-                uncertainnodes.append(node)
-
-        # Now that we have a list of nodes where the announcing player is uncertain about his/her hand,
-        # we can create a list of nodes that should be removed
-        removenodes = []
-        for node in model.nodes(data="state"):  # Loop over nodes
-            if know == (node in uncertainnodes):  # If the announcement is "I know", then remove nodes WITH
-                # uncertainty, if the announcement is "I don't know", then remove nodes WITHOUT uncertainty
-                nodesremoved = True  # We need to return whether we removed nodes
-                removenodes.append(node[0])  # This node should be removed
-        return removenodes, nodesremoved
-
-    '''
-    Mirror hands in possible world
-    Input:
-    -instr - String containing one or more hands
-    -hndsize - Hand size
-    Output:
-    -outstr - Input string with hands mirrored
-    '''
-
-    @staticmethod
-    def mirrorhands(instr, hndsize):
-        outstr = ""  # Start constructing output string
-        for i in range(int(len(instr) / hndsize)):  # Loop over hands in input string
-            substr = instr[i * hndsize:i * hndsize + hndsize]  # A hand
-            substr = substr[::-1]  # string[::-1] reverses a string
-            outstr = outstr + substr  # Add it to the output string
-        return outstr
-
-    '''
-    List of characters or strings to string
-    
-    Input:
-    -inlist - List of characters/strings
-    Output:
-    -outstr - Output string
-    '''
-
-    @staticmethod
-    def listtostring(inlist):
-        outstr = ""  # To-be-created output string
-        for substr in inlist:  # Loop over characters in list and append to string
-            outstr = outstr + substr
         return outstr
