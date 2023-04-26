@@ -247,17 +247,12 @@ def csvtopredictions(name='tompredictions.csv'):
     file.close()
 
     # Convert everything from string to Python objects
-    for i in range(len(outlist))[1:]:
-        if i < 3761:  # Only subject data
-            for j in [0,1,3,4]:
-                outlist[i][j] = int(outlist[i][j])
-            for j in [5,6,7,8,9,10]:
-                if isinstance(outlist[i][j], str):
-                    outlist[i][j] = eval(outlist[i][j])
-        else:
-            if i > 3760:
-                if isinstance(outlist[i][1], str):
-                    outlist[i][1] = eval(outlist[i][1])
+    for i in range(len(outlist))[1:len(outlist)-2]:  # Last two elements are parameter values
+        for j in [0,1,3,4]:
+            outlist[i][j] = int(outlist[i][j])
+        for j in [5,6,7,8,9,10]:
+            if isinstance(outlist[i][j], str):
+                outlist[i][j] = eval(outlist[i][j])
     return outlist
 
 '''
@@ -384,18 +379,17 @@ def readcedegaodata():
         datalist = []  # We need to convert from csv reader to list, as list has indices
         for row in datareader:  # Copy data rows into list
             datalist.append(row.copy())
-        for i in range(len(datalist)):  # Loop over data rows and convert each row
-            if i != 0:  # Don't convert header
-                for j in toeval:  # Loop over columns that need evaluating
-                    if datalist[i][j] == "":  # This happens if Amy/Ben didn't get a chance to respond in a round
-                        datalist[i][j] = None
+        for i in range(len(datalist))[1:]:  # Loop over data rows and convert each row, except header
+            for j in toeval:  # Loop over columns that need evaluating
+                if datalist[i][j] == "":  # This happens if Amy/Ben didn't get a chance to respond in a round
+                    datalist[i][j] = None
+                else:
+                    if datalist[i][j] == "NA":  # Convert NA values to -1
+                        datalist[i][j] = -1
                     else:
-                        if datalist[i][j] == "NA":  # Convert NA values to -1
-                            datalist[i][j] = -1
-                        else:
-                            datalist[i][j] = eval(datalist[i][j])  # Evaluate everything else as Python code
-                datalist[i][2] = datalist[i][2].split(
-                    ",")  # Convert string 'Ben,You,Amy' to list ['Ben', 'You', 'Amy']
+                        datalist[i][j] = eval(datalist[i][j])  # Evaluate everything else as Python code
+            datalist[i][2] = datalist[i][2].split(
+                ",")  # Convert string 'Ben,You,Amy' to list ['Ben', 'You', 'Amy']
         return datalist
 
 '''
@@ -711,10 +705,9 @@ def allsubjpairs(maxtom, verbose=False, reftom=True, delon=False, usecedegao=Fal
     pack = [lib, cdat]  # Pack the above together to pass to subjpairs
     outlist = []  # output list to construct
     # Cedegao has subjects 1 through 211
-    for i in range(211 + 1):  # Loop over all subjects
-        if i != 0:  # 0 is not a subject
-            subjlist = subjpairs(i, maxtom, pack=pack, verbose=verbose)  # Get predicted answers for this subject
-            outlist.append((i, subjlist))  # Add them to the output
+    for i in range(211 + 1)[1:]:  # Loop over all subjects
+        subjlist = subjpairs(i, maxtom, pack=pack, verbose=verbose)  # Get predicted answers for this subject
+        outlist.append((i, subjlist))  # Add them to the output
     return outlist
 
 '''
