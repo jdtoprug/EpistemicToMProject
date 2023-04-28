@@ -714,6 +714,8 @@ class ToMsModel:
                                 if numpossibs == 1:  # One option, no uncertainty
                                     setfalselist.append([n, p, t])  # Mark for removal
                         else:  # No outgoing edges
+                            #if knows:  # Announcement `I don't know'  # Alternatively, if someone announces `I don't know', remove tuples with no outgoing edges
+                            #    setfalselist.append([n, p, t])
                             if delonempty and t > 0:  # Delete with no outgoing edges if ToM > 0 and variable is set
                                 setfalselist.append([n, p, t])
         for [n,p,t] in setfalselist:  # Loop over to-be-removed tuples

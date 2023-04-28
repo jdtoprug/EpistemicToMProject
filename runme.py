@@ -169,7 +169,20 @@ def countmodelacc(predictlist, player, tom, perfect=False, emptyincorrect=False)
     for list in playerlist:  # Loop over player's decision points
         if not emptyincorrect:
             if list[6][tom][0] == -1:  # Replace 'impossible' with 'I don't know'
-                list[6][tom] = (1, ['8A'])  # TODO
+                list[6][tom] = (0, [''])  # If there are no outgoing edges, answer `I don't know my cards'. Replace with e.g. (-1, ['8A']) to change default answer
+        '''
+        # Replace default answer with (-1, ['']) and replace with this code block to use a fixed random distribution 
+        # over the answers as default (in this case a .5 probability of answering `I don't know', and a 0.16667 
+        # probability of using any of the `I know' answers
+        if list[6][tom][0] == -1: 
+            if list[ansindex][0] == 0:
+                correct += (1/2)
+                incorrect += (1/2)
+            else:
+                correct += (1/6)
+                incorrect += (5/6)
+        else:
+        '''
         if list[6][tom][0] != list[ansindex][0]:  # Predict True when say False and vice versa
             incorrect += 1
         else:
@@ -1210,7 +1223,6 @@ def drawmodel_toms(tomsmodel, savename, layout, pos=None, anss=None, correct=Non
 
 # Main function that gets run when code is executed, produces the images and data needed for the paper
 def runtask():
-    '''
     print("Drawing figures...")
     a8pm = PerfectModel(3, 2, "8888AAAA", "noself")  # Make perfect model for Aces and Eights
     a8pm.fullmodel_to_directed_reflexive()  # Turn non-directed graph without reflexive arrows into directed graph with reflexive arrows
@@ -1236,7 +1248,7 @@ def runtask():
     print("suweb <-c(" + str(lvls)[1:-1] + ")")
 
     print("")
-    '''
+
     print("Running RFX-BMS on epistemically bounded models...")
     rfxbms(4, "tom_refTrue_delonFalse_", True, False, convergediff=0.001, penalty=0.5, emptyincorrect=False,
            usecedegao=True)  # 0.001, 0.5 default
