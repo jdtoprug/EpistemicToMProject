@@ -40,16 +40,17 @@ ggplot(tot, aes(x = names, y= value, fill = variable), xlab="Age Group") +
         legend.title = element_text(size=13),
         legend.text = element_text(size=14)
   ) +
-  scale_y_continuous(limits = c(0, 0.6), breaks = c(0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6)) +
+  scale_y_continuous(limits = c(0, 0.55), breaks = c(0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6)) +
   scale_fill_discrete(name="Fitting method",
                       breaks=c("rfxbms","SUWEB"),
                       labels=c("RFX-BMS","MLE on SUWEB")) + 
   xlab("Model") + ylab("Proportion of participants fitted")  +
   geom_text(data=tot[c(1,2,3,4,5,6),],aes(x=names,y=value,label=format(round(value, digits=3),nsmall = 3)),
             vjust=-0.32,size=5,hjust=1.1) + 
-  geom_text(data=tot[c(7,8,9,10,11),],aes(x=names,y=value,label=format(round(value, digits=3),nsmall = 3)),
-            vjust=-0.32,size=5,hjust=-0.1)
-
+  geom_text(data=tot[c(7,8,9,11),],aes(x=names,y=value,label=format(round(value, digits=3),nsmall = 3)),
+            vjust=-0.32,size=5,hjust=-0.1) +
+  geom_text(data=tot[c(10),],aes(x=names,y=value,label=format(round(value, digits=3),nsmall = 3)),
+            vjust=-0.32,size=5,hjust=0.5)
 # Plot Figure 4
 
 #RFX-BMS results for ToM models, sorted as ToM-0, -1, -2, -3, -4, -5, random model
@@ -61,10 +62,16 @@ data <- data.frame(values=tom_rfxbms,names=names) #Convert to data frame
 #Plot Figure 4
 p <- ggplot(data=data, aes(x=names, y=values)) +
   geom_bar(stat="identity") +
-  ylim(0,0.6) + 
+  scale_y_continuous(limits = c(0, 0.55), breaks = c(0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6)) + 
   labs(x="",y="") + geom_text(data=data,aes(x=names,y=values,label=format(round(values, digits=3),nsmall = 3)),
                                                                     vjust=-1,size=5) +
-  theme(axis.title.x=element_blank(),legend.title=element_blank(),axis.text=element_text(size=12))
+  xlab("Model") + ylab("Proportion of participants fitted")  +
+  theme(legend.title=element_blank(), 
+      axis.text.x = element_text(size=15),
+      axis.text.y = element_text(size=15),
+      axis.title.x = element_text(size=15),
+      axis.title.y = element_text(size=15),
+      legend.text = element_text(size=14))
 
 #Show Figure 4
 p
