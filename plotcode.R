@@ -57,6 +57,7 @@ ggplot(tot, aes(x = names, y= value, fill = variable), xlab="Age Group") +
 tom_rfxbms <- c(0.1628446565849932, 0.20955381145911933, 0.3689215648244876, 0.10117939982240508, 0.015289403238450365, 0.13697918692915367, 0.005231977141390788)  # Empty = nK
 
 names = c("ToM-0","ToM-1","ToM-2","ToM-3","ToM-4","ToM-5","Random") #Model names
+names <- factor(names, levels = names) #Turn into ordered factor so ggplot doesn't sort the bars
 data <- data.frame(values=tom_rfxbms,names=names) #Convert to data frame
 
 #Plot Figure 4
