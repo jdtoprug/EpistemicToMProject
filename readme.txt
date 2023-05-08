@@ -1,4 +1,4 @@
-EpistemicToMProject contains the code use in the paper "Title" (Top, , , , 202)
+EpistemicToMProject contains the code used in the paper "Predictive Theory of Mind Models Based on Public Announcement Logic" (Top, Jonker, Verbrugge, De Weerd, 2023)
 
 The following files were copied from the paper "Does Amy know Ben knows you know your cards? A computational model of higher-order epistemic reasoning" (Cedegao, Ham, Holliday (2021)):
 -The folder fitted_parameters and contents.
