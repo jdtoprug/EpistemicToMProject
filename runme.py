@@ -1210,7 +1210,6 @@ def drawmodel_toms(tomsmodel, savename, layout, pos=None, anss=None, correct=Non
 
 # Main function that gets run when code is executed, produces the images and data needed for the paper
 def runtask():
-    '''
     print("Drawing figures...")
     a8pm = PerfectModel(3, 2, "8888AAAA", "noself")  # Make perfect model for Aces and Eights
     a8pm.fullmodel_to_directed_reflexive()  # Turn non-directed graph without reflexive arrows into directed graph with reflexive arrows
@@ -1236,7 +1235,7 @@ def runtask():
     print("suweb <-c(" + str(lvls)[1:-1] + ")")
 
     print("")
-    '''
+
     print("Running RFX-BMS on epistemically bounded models...")
     rfxbms(4, "tom_refTrue_delonFalse_", True, False, convergediff=0.001, penalty=0.5, emptyincorrect=False,
            usecedegao=True)  # 0.001, 0.5 default
