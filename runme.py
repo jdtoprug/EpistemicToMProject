@@ -1233,6 +1233,36 @@ def runtask():
                    edgefntsz=9, fntsz=9)  # Draw and save model for Figure 2a
     tsm.update(False, 0)  # Update ToM model with announcement `I do not know my cards' by player 0
     drawmodel_toms(tsm, "Figure2b", layout, pos=pos, drawreflexive=True, drawtoms = True, statefont = 9, edgefntsz = 9, fntsz = 9)  # Draw and save model for Figure 2b
+
+    reft = True  # Does reflexive count? Default: True
+    delonempty = False  # Less weird but some puzzles need ToM-6. Default: False
+    tsm = ToMsModel(a8pm, 5)
+    pos = drawmodel_toms(tsm, "Table1a", layout, drawreflexive=True, drawtoms=True, statefont=9,
+                         edgefntsz=9, fntsz=9)
+    tsm.update(False, 0, reflexivetom=reft, delonempty=delonempty)
+    drawmodel_toms(tsm, "Table1b", layout, pos=pos, anss=[["False"]], drawreflexive=True, drawtoms=True, statefont=9,
+                   edgefntsz=9, fntsz=9)
+    tsm.update(False, 1, reflexivetom=reft, delonempty=delonempty)
+    drawmodel_toms(tsm, "Table1c", layout, pos=pos, anss=[["False", "False"]], drawreflexive=True, drawtoms=True,
+                   statefont=9,
+                   edgefntsz=9, fntsz=9)
+    tsm.update(False, 2, reflexivetom=reft, delonempty=delonempty)
+    drawmodel_toms(tsm, "Table1d", layout, pos=pos, anss=[["False", "False", "False"]], drawreflexive=True,
+                   drawtoms=True, statefont=9,
+                   edgefntsz=9, fntsz=9)
+    tsm.update(False, 0, reflexivetom=reft, delonempty=delonempty)
+    drawmodel_toms(tsm, "Table1e", layout, pos=pos, anss=[["False", "False", "False"], ["False"]], drawreflexive=True,
+                   drawtoms=True, statefont=9,
+                   edgefntsz=9, fntsz=9)
+    tsm.update(True, 1, reflexivetom=reft, delonempty=delonempty)
+    drawmodel_toms(tsm, "Table1f", layout, pos=pos, anss=[["False", "False", "False"], ["False", "True"]],
+                   drawreflexive=True, drawtoms=True, statefont=9,
+                   edgefntsz=9, fntsz=9)
+    tsm.update(False, 2, reflexivetom=reft, delonempty=delonempty)
+    drawmodel_toms(tsm, "Table1g", layout, pos=pos,
+                   anss=[["False", "False", "False"], ["False", "True", "False"]], drawreflexive=True, drawtoms=True,
+                   statefont=9,
+                   edgefntsz=9, fntsz=9)
     print("")
     print("Calculating proportions of SUWEB levels...")
     cwd = os.getcwd()  # Get working directory
@@ -1256,7 +1286,6 @@ def runtask():
     print("Running RFX-BMS on ToM models...")
     rfxbms(5, "tom_refTrue_delonFalse_", True, False, convergediff=0.001, penalty=0.5, emptyincorrect=False,
            usecedegao=False)  # 0.001, 0.5 default
-    print("")
 
 start = timeit.default_timer()
 runtask()

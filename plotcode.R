@@ -1,10 +1,5 @@
 #RStudio recommended
 
-#install.packages("reshape2")
-#install.packages("ggplot2")
-#install.packages("magrittr")
-#install.packages("dplyr")
-
 #Load require libraries
 library(reshape2)
 library(ggplot2)
