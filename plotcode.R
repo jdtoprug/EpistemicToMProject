@@ -28,12 +28,12 @@ tot <- melt(tot)  # Combine columns with proportion
 ggplot(tot, aes(x = names, y= value, fill = variable), xlab="Age Group") +
   geom_bar(stat="identity", width=.5, position = "dodge") + 
   theme(legend.position = c(0.85,0.85), 
-        axis.text.x = element_text(size=15),
-        axis.text.y = element_text(size=15),
-        axis.title.x = element_text(size=15),
-        axis.title.y = element_text(size=15),
-        legend.title = element_text(size=13),
-        legend.text = element_text(size=14)
+        axis.text.x = element_text(size=20),
+        axis.text.y = element_text(size=20),
+        axis.title.x = element_text(size=20),
+        axis.title.y = element_text(size=20),
+        legend.title = element_text(size=16),
+        legend.text = element_text(size=18)
   ) +
   scale_y_continuous(limits = c(0, 0.55), breaks = c(0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6)) +
   scale_fill_discrete(name="Fitting method",
@@ -41,11 +41,11 @@ ggplot(tot, aes(x = names, y= value, fill = variable), xlab="Age Group") +
                       labels=c("RFX-BMS on EB","MLE on SUWEB")) + 
   xlab("Model") + ylab("Proportion of population fitted")  +
   geom_text(data=tot[c(1,2,3,4,5,6),],aes(x=names,y=value,label=format(round(value, digits=3),nsmall = 3)),
-            vjust=-0.32,size=5,hjust=1.1) + 
+            vjust=-0.32,size=6.5,hjust=1.1) + 
   geom_text(data=tot[c(7,8,9,11),],aes(x=names,y=value,label=format(round(value, digits=3),nsmall = 3)),
-            vjust=-0.32,size=5,hjust=-0.1) +
+            vjust=-0.32,size=6.5,hjust=-0.1) +
   geom_text(data=tot[c(10),],aes(x=names,y=value,label=format(round(value, digits=3),nsmall = 3)),
-            vjust=-0.32,size=5,hjust=0.5)
+            vjust=-0.32,size=6.5,hjust=0.5)
 
 # Plot Figure 4
 
@@ -61,14 +61,14 @@ p <- ggplot(data=data, aes(x=names, y=values)) +
   geom_bar(stat="identity") +
   scale_y_continuous(limits = c(0, 0.55), breaks = c(0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6)) + 
   labs(x="",y="") + geom_text(data=data,aes(x=names,y=values,label=format(round(values, digits=3),nsmall = 3)),
-                                                                    vjust=-1,size=5) +
+                                                                    vjust=-1,size=6.5) +
   xlab("Model") + ylab("Proportion of population fitted")  +
   theme(legend.title=element_blank(), 
-      axis.text.x = element_text(size=15),
-      axis.text.y = element_text(size=15),
-      axis.title.x = element_text(size=15),
-      axis.title.y = element_text(size=15),
-      legend.text = element_text(size=14))
+      axis.text.x = element_text(size=20),
+      axis.text.y = element_text(size=20),
+      axis.title.x = element_text(size=20),
+      axis.title.y = element_text(size=20),
+      legend.text = element_text(size=18))
 
 #Show Figure 4
 p
