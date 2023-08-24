@@ -39,7 +39,7 @@ ggplot(tot, aes(x = names, y= value, fill = variable), xlab="Age Group") +
   scale_fill_discrete(name="Fitting method",
                       breaks=c("rfxbms","SUWEB"),
                       labels=c("RFX-BMS on EB","MLE on SUWEB")) + 
-  xlab("Model") + ylab("Proportion of participants fitted")  +
+  xlab("Model") + ylab("Proportion of population fitted")  +
   geom_text(data=tot[c(1,2,3,4,5,6),],aes(x=names,y=value,label=format(round(value, digits=3),nsmall = 3)),
             vjust=-0.32,size=5,hjust=1.1) + 
   geom_text(data=tot[c(7,8,9,11),],aes(x=names,y=value,label=format(round(value, digits=3),nsmall = 3)),
@@ -62,7 +62,7 @@ p <- ggplot(data=data, aes(x=names, y=values)) +
   scale_y_continuous(limits = c(0, 0.55), breaks = c(0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6)) + 
   labs(x="",y="") + geom_text(data=data,aes(x=names,y=values,label=format(round(values, digits=3),nsmall = 3)),
                                                                     vjust=-1,size=5) +
-  xlab("Model") + ylab("Proportion of participants fitted")  +
+  xlab("Model") + ylab("Proportion of population fitted")  +
   theme(legend.title=element_blank(), 
       axis.text.x = element_text(size=15),
       axis.text.y = element_text(size=15),
