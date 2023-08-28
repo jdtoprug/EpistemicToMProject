@@ -98,7 +98,7 @@ Contains the predictions for each model, for each participant's decision point.<
 The first row is the header, and the last three rows are the parameter settings of the parameters reftom, delon, and confbi. For all remaining rows, columns are as follows:
 
 1. Participant ID
-2. Decision pount number
+2. Decision point number
 3. Distribution of cards
 4. Turn the participant has in this game (starting at 0)
 5. Current round

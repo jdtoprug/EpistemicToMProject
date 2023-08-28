@@ -1,6 +1,6 @@
 '''
 FILE (minus some comments) FROM CEDEGAO ET AL 2021
-I DID NOT MAKE THIS!
+I (J.D. Top) DID NOT MAKE THIS!
 Novel comments and new functions should be labelled as such
 '''
 
